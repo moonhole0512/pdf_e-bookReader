@@ -298,22 +298,29 @@ def lookup_by_title_volume():
         response.raise_for_status()
         data = response.json()
 
-        if not data.get('items') or len(data['items']) != 1:
-            return jsonify({"error": "No unique book found for the given title and volume.", "count": len(data.get('items', []))}), 404
+        if not data.get('items'):
+            return jsonify({"error": "No book found for the given title and volume."}), 404
 
-        volume_info = data['items'][0]['volumeInfo']
-        industry_identifiers = volume_info.get('industryIdentifiers', [])
-        isbn_13 = next((id['identifier'] for id in industry_identifiers if id['type'] == 'ISBN_13'), None)
-        isbn_10 = next((id['identifier'] for id in industry_identifiers if id['type'] == 'ISBN_10'), None)
+        results = []
+        for item in data['items']:
+            volume_info = item['volumeInfo']
+            industry_identifiers = volume_info.get('industryIdentifiers', [])
+            isbn_13 = next((id['identifier'] for id in industry_identifiers if id['type'] == 'ISBN_13'), None)
+            isbn_10 = next((id['identifier'] for id in industry_identifiers if id['type'] == 'ISBN_10'), None)
 
-        result = {
-            "title": volume_info.get('title'),
-            "author": ", ".join(volume_info.get('authors', [])),
-            "thumbnail": volume_info.get('imageLinks', {}).get('thumbnail'),
-            "isbn_13": isbn_13 or isbn_10 # Prioritize ISBN_13
-        }
+            results.append({
+                "title": volume_info.get('title'),
+                "author": ", ".join(volume_info.get('authors', [])),
+                "thumbnail": volume_info.get('imageLinks', {}).get('thumbnail'),
+                "isbn_13": isbn_13,
+                "isbn_10": isbn_10
+            })
+        
+        # If there's only one result, return it as a single object for backward compatibility
+        if len(results) == 1:
+            return jsonify(results[0])
 
-        return jsonify(result)
+        return jsonify(results)
 
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500

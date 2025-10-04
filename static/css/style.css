@@ -602,6 +602,50 @@ header nav a.scan-btn {
     background: var(--accent-color);
 }
 
+.modal-content .book-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.book-card-small {
+    background: var(--primary-bg);
+    border-radius: 5px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.3s;
+}
+
+.book-card-small:hover {
+    border-color: #555;
+}
+
+.book-card-small.selected {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+}
+
+.book-card-small img {
+    width: 100%;
+    aspect-ratio: 3 / 4.5;
+    object-fit: cover;
+}
+
+.book-info-small {
+    padding: 0.5rem;
+    text-align: center;
+}
+
+.book-info-small p {
+    font-size: 0.75rem;
+    margin: 0;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 #volume-list.book-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 1rem;

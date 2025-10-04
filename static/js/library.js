@@ -52,47 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (response.ok) {
-                // Single result found, populate automatically
-                selectedCoverUrl = data.thumbnail;
-                
-                let imagesHtml = '';
-                if (data.thumbnail) {
-                    imagesHtml = `<img src="${data.thumbnail}" alt="Book Cover" id="cover-preview-img" class="cover-preview selected">`;
+                if (Array.isArray(data)) {
+                    // Multiple results, let user choose
+                    displayMultipleResults(data);
                 } else {
-                    imagesHtml = `
-                        <p>표지 이미지를 찾을 수 없습니다.</p>
-                        <div id="manual-cover-input-group">
-                            <input type="text" id="manual-cover-url" placeholder="이미지 URL을 직접 붙여넣으세요">
-                            <img src="" alt="미리보기" id="cover-preview-img" class="cover-preview" style="display:none; margin-top: 10px;">
-                        </div>
-                    `;
+                    // Single result found, populate automatically
+                    displaySingleResult(data);
                 }
-
-                resultsDiv.innerHTML = `
-                    <div id="result-info">
-                        <p><strong>제목:</strong> <span id="result-title">${data.title || 'N/A'}</span></p>
-                        <p><strong>저자:</strong> <span id="result-author">${data.author || 'N/A'}</span></p>
-                        <p><strong>ISBN:</strong> <span id="result-isbn">${data.isbn_13 || 'N/A'}</span></p>
-                    </div>
-                    <div id="result-images">${imagesHtml}</div>
-                `;
-
-                if (!data.thumbnail) {
-                    document.getElementById('manual-cover-url').addEventListener('input', (e) => {
-                        const url = e.target.value;
-                        const previewImg = document.getElementById('cover-preview-img');
-                        if (url) {
-                            previewImg.src = url;
-                            previewImg.style.display = 'block';
-                            selectedCoverUrl = url;
-                        } else {
-                            previewImg.style.display = 'none';
-                        }
-                    });
-                }
-
-                registerBtn.disabled = false;
-
             } else {
                 // No unique result, fall back to manual ISBN input
                 resultsDiv.innerHTML = `<p class="error">${data.error || '책 정보를 자동으로 찾을 수 없습니다. 수동으로 ISBN을 입력해주세요.'}</p>`;
@@ -106,6 +72,101 @@ document.addEventListener('DOMContentLoaded', () => {
             isbnInput.style.display = 'block';
             searchBtn.style.display = 'block';
         }
+    };
+
+    const displaySingleResult = (data) => {
+        selectedCoverUrl = data.thumbnail;
+        
+        let imagesHtml = '';
+        if (data.thumbnail) {
+            imagesHtml = `<img src="${data.thumbnail}" alt="Book Cover" id="cover-preview-img" class="cover-preview selected">`;
+        } else {
+            imagesHtml = `
+                <p>표지 이미지를 찾을 수 없습니다.</p>
+                <div id="manual-cover-input-group">
+                    <input type="text" id="manual-cover-url" placeholder="이미지 URL을 직접 붙여넣으세요">
+                    <img src="" alt="미리보기" id="cover-preview-img" class="cover-preview" style="display:none; margin-top: 10px;">
+                </div>
+            `;
+        }
+
+        resultsDiv.innerHTML = `
+            <div id="result-info">
+                <p><strong>제목:</strong> <span id="result-title">${data.title || 'N/A'}</span></p>
+                <p><strong>저자:</strong> <span id="result-author">${data.author || 'N/A'}</span></p>
+                <p><strong>ISBN:</strong> <span id="result-isbn">${data.isbn_13 || data.isbn_10 || 'N/A'}</span></p>
+            </div>
+            <div id="result-images">${imagesHtml}</div>
+        `;
+
+        if (!data.thumbnail) {
+            document.getElementById('manual-cover-url').addEventListener('input', (e) => {
+                const url = e.target.value;
+                const previewImg = document.getElementById('cover-preview-img');
+                if (url) {
+                    previewImg.src = url;
+                    previewImg.style.display = 'block';
+                    selectedCoverUrl = url;
+                } else {
+                    previewImg.style.display = 'none';
+                }
+            });
+        }
+
+        registerBtn.disabled = false;
+    };
+
+    const displayMultipleResults = (results) => {
+        resultsDiv.innerHTML = '<p>여러 결과가 검색되었습니다. 등록할 책을 선택해주세요.</p>';
+        const selectionGrid = document.createElement('div');
+        selectionGrid.className = 'book-grid';
+
+        results.forEach(book => {
+            const bookCard = document.createElement('div');
+            bookCard.className = 'book-card-small';
+            bookCard.dataset.title = book.title;
+            bookCard.dataset.author = book.author;
+            bookCard.dataset.coverUrl = book.thumbnail || '';
+            bookCard.dataset.isbn13 = book.isbn_13 || '';
+            bookCard.dataset.isbn10 = book.isbn_10 || '';
+
+            const placeholder = `https://placehold.co/150x225/2a2a2a/ffffff?text=${encodeURIComponent(book.title || 'No Title')}`;
+            const cover = book.thumbnail || placeholder;
+
+            bookCard.innerHTML = `
+                <img src="${cover}" alt="${book.title}">
+                <div class="book-info-small">
+                    <p>${book.title}</p>
+                </div>
+            `;
+            selectionGrid.appendChild(bookCard);
+        });
+
+        resultsDiv.appendChild(selectionGrid);
+
+        selectionGrid.addEventListener('click', (e) => {
+            const selectedCard = e.target.closest('.book-card-small');
+            if (!selectedCard) return;
+
+            // Remove previous selection
+            document.querySelectorAll('.book-card-small.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Add new selection
+            selectedCard.classList.add('selected');
+
+            // Populate hidden fields and enable register button
+            const bookData = selectedCard.dataset;
+            displaySingleResult({
+                title: bookData.title,
+                author: bookData.author,
+                thumbnail: bookData.coverUrl,
+                isbn_13: bookData.isbn13,
+                isbn_10: bookData.isbn10
+            });
+            registerBtn.disabled = false;
+        });
     };
 
     const closeIsbnModal = () => {
