@@ -9,7 +9,7 @@ class User(db.Model):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False)
-    password_hash = Column(String(120), nullable=False)
+    password_hash = Column(String(120), nullable=True) 
 
     def __repr__(self):
         return f'<User {self.username}>'

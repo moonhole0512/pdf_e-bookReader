@@ -1,0 +1,63 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ file.book.title }} - Vol.{{ file.volume_number }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body data-file-id="{{ file.id }}" data-pdf-url="{{ pdf_url }}" data-initial-page="{{ state.current_page }}">
+
+    <div id="reader-container">
+        <div id="pdf-viewer"></div>
+    </div>
+
+    <div class="reader-controls">
+        <button id="prev-page">‹</button>
+        <span id="page-num"></span> / <span id="page-count"></span>
+        <button id="next-page">›</button>
+        
+        <button id="zoom-out">-</button>
+        <button id="zoom-in">+</button>
+
+        <span class="separator">|</span>
+
+        <button id="fit-to-width">너비 맞춤</button>
+        <button id="fit-to-height">높이 맞춤</button>
+
+        <span class="separator">|</span>
+
+        <button id="toggle-view">1</button>
+        <button id="toggle-color-settings">색상</button>
+        <a href="{{ url_for('index') }}" class="back-to-library">목록</a>
+    </div>
+
+    <div id="color-settings-panel" class="reader-panel hidden">
+        <div class="setting-item">
+            <label for="brightness-slider">밝기</label>
+            <input type="range" id="brightness-slider" min="50" max="200" value="100">
+        </div>
+        <div class="setting-item">
+            <label for="contrast-slider">대비</label>
+            <input type="range" id="contrast-slider" min="50" max="200" value="100">
+        </div>
+        <div class="setting-item">
+            <label for="saturation-slider">채도</label>
+            <input type="range" id="saturation-slider" min="0" max="200" value="100">
+        </div>
+        <button id="reset-color-settings">초기화</button>
+    </div>
+
+    <div id="next-volume-popup" class="hidden">
+        <div class="popup-content">
+            <p id="next-volume-message">마지막 페이지입니다. 다음 권으로 이동하시겠습니까?</p>
+            <button id="go-to-next-action">네</button>
+            <button onclick="document.getElementById('next-volume-popup').classList.add('hidden')">아니요</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/reader.js') }}"></script>
+</body>
+</html>

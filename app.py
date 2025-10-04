@@ -30,23 +30,24 @@ def init_db():
         os.makedirs(db_dir, exist_ok=True)
 
         db.create_all()
-        # Create a dummy user if not exists
-        if not User.query.filter_by(username='dummy').first():
-            dummy_user = User(username='dummy', password_hash=generate_password_hash('dummy'))
-            db.session.add(dummy_user)
-            db.session.commit()
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
-        password = request.form['password']
         user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password_hash, password):
-            session.clear()
-            session['user_id'] = user.id
-            return redirect(url_for('index'))
-    return render_template('login.html')
+        if not user:
+            user = User(username=username, password_hash=None) # No password needed
+            db.session.add(user)
+            db.session.commit()
+        
+        session.clear()
+        session['user_id'] = user.id
+        return redirect(url_for('index'))
+    
+    users = User.query.all()
+    return render_template('login.html', users=users)
 
 @app.route('/logout')
 def logout():
@@ -180,7 +181,7 @@ def get_next_volume(file_id):
     if next_volume:
         return jsonify({'next_file_id': next_volume.id})
     else:
-        return jsonify({'next_file_id': None}), 404
+        return jsonify({'next_file_id': None}), 200 # Return 200 OK with None if no next volume
 
 @app.route('/admin/scan', methods=['GET']) # Should be POST in production with auth
 def scan_files():
@@ -259,6 +260,51 @@ def update_metadata():
     db.session.commit()
 
     return jsonify({"success": True, "message": "Metadata updated."})
+
+@app.route('/api/book/lookup_by_title_volume')
+def lookup_by_title_volume():
+    title = request.args.get('title')
+    volume = request.args.get('volume')
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    # Remove spaces from title for more robust search
+    processed_title = title.replace(' ', '')
+
+    query_parts = [processed_title]
+    if volume:
+        query_parts.append(volume)
+    
+    query = f"\"{' '.join(query_parts)}\""
+
+
+    try:
+        url = f"https://www.googleapis.com/books/v1/volumes?q={query}&langRestrict=ko"
+        print(f"Google Books API URL: {url}") # Debug print
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        if not data.get('items') or len(data['items']) != 1:
+            return jsonify({"error": "No unique book found for the given title and volume.", "count": len(data.get('items', []))}), 404
+
+        volume_info = data['items'][0]['volumeInfo']
+        industry_identifiers = volume_info.get('industryIdentifiers', [])
+        isbn_13 = next((id['identifier'] for id in industry_identifiers if id['type'] == 'ISBN_13'), None)
+        isbn_10 = next((id['identifier'] for id in industry_identifiers if id['type'] == 'ISBN_10'), None)
+
+        result = {
+            "title": volume_info.get('title'),
+            "author": ", ".join(volume_info.get('authors', [])),
+            "thumbnail": volume_info.get('imageLinks', {}).get('thumbnail'),
+            "isbn_13": isbn_13 or isbn_10 # Prioritize ISBN_13
+        }
+
+        return jsonify(result)
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/book/lookup')
 def lookup_book():

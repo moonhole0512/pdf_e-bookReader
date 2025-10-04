@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <h1>E-Book Reader</h1>
+        
+        <div class="user-list-container">
+            <h2>기존 사용자</h2>
+            <div class="user-list">
+                {% for user in users %}
+                <form action="{{ url_for('login') }}" method="POST" class="user-item">
+                    <input type="hidden" name="username" value="{{ user.username }}">
+                    <button type="submit" class="user-button">
+                        <div class="user-icon"></div>
+                        <span>{{ user.username }}</span>
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        </div>
+
+        <form method="POST" class="new-user-form">
+            <h2>새 사용자 또는 직접 로그인</h2>
+            <input type="text" name="username" placeholder="사용자 이름 입력" required>
+            <button type="submit">로그인 / 새 사용자 생성</button>
+        </form>
+    </div>
+</body>
+</html>
