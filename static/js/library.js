@@ -24,7 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         
-        const btn = e.target;
+        const btn = e.target.closest('.isbn-btn'); // Use closest for robustness
+        if (!btn) return; // Should not happen if called from event listener
+
         const fileId = btn.dataset.fileId;
         const bookTitle = btn.dataset.bookTitle;
         const volumeNumber = btn.dataset.volumeNumber; // Get volume number
@@ -138,6 +140,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p>${vol.title || '제목 없음'}</p>
                     </div>
                 </a>
+                ${vol.total_pages > 0 ? `
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: ${((vol.current_page || 0) / vol.total_pages) * 100}%;"></div>
+                </div>
+                <span class="progress-text">${vol.current_page || 0} / ${vol.total_pages}</span>
+                ` : ''}
                 <button class="isbn-btn" data-file-id="${vol.id}" data-book-title="${vol.title || '제목 없음'}" data-volume-number="${vol.volume_number}">ISBN</button>
             `;
             volumeList.appendChild(volCard);

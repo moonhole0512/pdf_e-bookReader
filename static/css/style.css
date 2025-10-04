@@ -12,6 +12,24 @@ body {
     color: var(--text-color);
     margin: 0;
     line-height: 1.6;
+    /* Custom Scrollbar for Webkit browsers */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--accent-color) var(--secondary-bg); /* Firefox */
+}
+
+body::-webkit-scrollbar {
+    width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+    background: var(--secondary-bg);
+    border-radius: 10px;
+}
+
+body::-webkit-scrollbar-thumb {
+    background-color: var(--accent-color);
+    border-radius: 10px;
+    border: 2px solid var(--secondary-bg);
 }
 
 /* --- Login Page --- */
@@ -221,6 +239,24 @@ header nav a.scan-btn {
     height: 100vh; 
     overflow: auto; 
     text-align: center;
+    /* Custom Scrollbar for Webkit browsers */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--accent-color) var(--secondary-bg); /* Firefox */
+}
+
+#reader-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+#reader-container::-webkit-scrollbar-track {
+    background: var(--secondary-bg);
+    border-radius: 10px;
+}
+
+#reader-container::-webkit-scrollbar-thumb {
+    background-color: var(--accent-color);
+    border-radius: 10px;
+    border: 2px solid var(--secondary-bg);
 }
 #pdf-viewer { display: inline-block; }
 #pdf-viewer canvas { 
@@ -532,6 +568,24 @@ header nav a.scan-btn {
     margin: 1.5rem 0;
     max-height: 60vh;
     overflow-y: auto;
+    /* Custom Scrollbar for Webkit browsers */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--accent-color) var(--secondary-bg); /* Firefox */
+}
+
+#volume-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#volume-list::-webkit-scrollbar-track {
+    background: var(--secondary-bg);
+    border-radius: 10px;
+}
+
+#volume-list::-webkit-scrollbar-thumb {
+    background-color: var(--accent-color);
+    border-radius: 10px;
+    border: 2px solid var(--secondary-bg);
 }
 
 #volume-list li a {

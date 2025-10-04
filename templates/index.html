@@ -66,6 +66,13 @@
                             <h3>{{ group.book.title }}</h3>
                             <p>{{ group.cover_file.author or group.book.author }}</p>
                         </div>
+                        {% if group.volume_count == 1 %}
+                        <button class="isbn-btn" 
+                                data-file-id="{{ group.files[0].id }}" 
+                                data-book-title="{{ group.book.title }}" 
+                                data-volume-number="{{ group.files[0].volume_number }}"
+                                onclick="event.stopPropagation();">ISBN</button>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
@@ -100,11 +107,11 @@
         </section>
         {% endif %}
 
-        {% if new_groups %}
+        {% if recommended_groups %}
         <section class="bookshelf">
-            <h2>새로운 책</h2>
+            <h2>추천 책</h2>
             <div class="book-grid">
-                {% for group in new_groups %}
+                {% for group in recommended_groups %}
                     <div class="book-card" 
                          data-is-group="true" 
                          data-volume-count="{{ group.volume_count }}" 

@@ -7,6 +7,7 @@ from sqlalchemy import func, desc
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
 import requests
+import random
 
 from config import Config
 from models import db, User, Book, File, ReadingState
@@ -78,12 +79,18 @@ def index():
             # Make files serializable for template
             serializable_files = []
             for f in file_list:
+                # Get reading state for the current user and file
+                reading_state = ReadingState.query.filter_by(user_id=g.user.id, file_id=f.id).first()
+                current_page = reading_state.current_page if reading_state else 0
+
                 serializable_files.append({
                     "id": f.id, 
                     "title": f.title or f.book.title, 
                     "author": f.author or f.book.author, 
                     "volume_number": f.volume_number, 
-                    "cover_url": f.cover_url or f.book.cover_url
+                    "cover_url": f.cover_url or f.book.cover_url,
+                    "current_page": current_page,
+                    "total_pages": f.total_pages
                 })
 
             grouped_list.append({
@@ -104,10 +111,15 @@ def index():
     reading_files_query = File.query.filter(File.book_id.in_(reading_book_ids)).all()
     reading_groups = group_files_by_book(reading_files_query)
 
-    # 3. 새로운 책 목록 (그룹화)
-    read_book_ids = db.session.query(File.book_id).join(ReadingState).filter(ReadingState.user_id == g.user.id).distinct()
-    new_files_query = File.query.filter(~File.book_id.in_(read_book_ids)).all()
-    new_groups = group_files_by_book(new_files_query)
+    # 3. 추천 책 목록 (랜덤 5개 그룹화)
+    all_book_ids = db.session.query(Book.id).all()
+    if len(all_book_ids) > 5:
+        random_book_ids = random.sample([book.id for book in all_book_ids], 5)
+    else:
+        random_book_ids = [book.id for book in all_book_ids]
+
+    recommended_files_query = File.query.filter(File.book_id.in_(random_book_ids)).all()
+    recommended_groups = group_files_by_book(recommended_files_query)
 
     # 4. 모든 책 목록 (그룹화)
     all_files_query = File.query.all()
@@ -116,7 +128,7 @@ def index():
     return render_template('index.html', 
                            last_read_file=last_read_state.file if last_read_state else None,
                            reading_groups=reading_groups,
-                           new_groups=new_groups,
+                           recommended_groups=recommended_groups,
                            all_groups=all_groups)
 
 @app.route('/reader/<int:file_id>')
