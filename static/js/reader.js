@@ -26,21 +26,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const contrastSlider = document.getElementById('contrast-slider');
     const saturationSlider = document.getElementById('saturation-slider');
     const resetColorSettingsBtn = document.getElementById('reset-color-settings');
+    const invertColorsToggle = document.getElementById('invert-colors-toggle');
 
     // --- LocalStorage Keys for Color Settings ---
     const BRIGHTNESS_KEY = 'pdfReaderBrightness';
     const CONTRAST_KEY = 'pdfReaderContrast';
     const SATURATION_KEY = 'pdfReaderSaturation';
+    const INVERT_COLORS_KEY = 'pdfReaderInvertColors';
 
     // --- Default Color Settings ---
     const DEFAULT_BRIGHTNESS = 100;
     const DEFAULT_CONTRAST = 100;
     const DEFAULT_SATURATION = 100;
+    const DEFAULT_INVERT_COLORS = false;
 
     // --- Load Color Settings from LocalStorage ---
     let currentBrightness = parseInt(localStorage.getItem(BRIGHTNESS_KEY) || DEFAULT_BRIGHTNESS, 10);
     let currentContrast = parseInt(localStorage.getItem(CONTRAST_KEY) || DEFAULT_CONTRAST, 10);
     let currentSaturation = parseInt(localStorage.getItem(SATURATION_KEY) || DEFAULT_SATURATION, 10);
+    let isInverted = (localStorage.getItem(INVERT_COLORS_KEY) === 'true');
 
     // --- State Variables ---
     let pdfDoc = null;
@@ -71,24 +75,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyColorFilters() {
-        const filterString = `brightness(${currentBrightness}%) contrast(${currentContrast}%) saturate(${currentSaturation}%)`;
+        let filterString = `brightness(${currentBrightness}%) contrast(${currentContrast}%) saturate(${currentSaturation}%)`;
+        if (isInverted) {
+            filterString += ' invert(100%)';
+        }
         viewer.style.filter = filterString;
 
         // Update slider UI
         brightnessSlider.value = currentBrightness;
         contrastSlider.value = currentContrast;
         saturationSlider.value = currentSaturation;
+        invertColorsToggle.checked = isInverted;
 
         // Save to localStorage
         localStorage.setItem(BRIGHTNESS_KEY, currentBrightness);
         localStorage.setItem(CONTRAST_KEY, currentContrast);
         localStorage.setItem(SATURATION_KEY, currentSaturation);
+        localStorage.setItem(INVERT_COLORS_KEY, isInverted);
     }
 
     function resetColorFilters() {
         currentBrightness = DEFAULT_BRIGHTNESS;
         currentContrast = DEFAULT_CONTRAST;
         currentSaturation = DEFAULT_SATURATION;
+        isInverted = DEFAULT_INVERT_COLORS;
         applyColorFilters();
     }
 
@@ -276,6 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Color Settings Event Listeners ---
     toggleColorSettingsBtn.addEventListener('click', () => {
         colorSettingsPanel.classList.toggle('hidden');
+        if (!colorSettingsPanel.classList.contains('hidden')) { // If panel is now visible
+            clearTimeout(controlsHideTimeout);
+            readerControls.classList.add('visible');
+        }
     });
 
     brightnessSlider.addEventListener('input', (e) => {
@@ -295,6 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resetColorSettingsBtn.addEventListener('click', resetColorFilters);
 
+    invertColorsToggle.addEventListener('change', (e) => {
+        isInverted = e.target.checked;
+        applyColorFilters();
+    });
+
     window.addEventListener('resize', debounce(() => {
         if (fitMode !== 'custom') {
             renderQueue(pageNum);
@@ -307,9 +326,34 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.clientY < 100) { // If mouse is in the top 100px of the screen
             readerControls.classList.add('visible');
         } else {
-            controlsHideTimeout = setTimeout(() => {
-                readerControls.classList.remove('visible');
-            }, 1000); // Hide after 1 second of inactivity
+            if (colorSettingsPanel.classList.contains('hidden')) { // Only hide if color settings panel is hidden
+                controlsHideTimeout = setTimeout(() => {
+                    readerControls.classList.remove('visible');
+                }, 1000); // Hide after 1 second of inactivity
+            }
+        }
+    });
+
+    // --- Touch for controls visibility (for mobile/tablet) ---
+    document.body.addEventListener('touchstart', (e) => {
+        if (e.touches[0].clientY < 100) { // Only show if touch is in the top 100px of the screen
+            clearTimeout(controlsHideTimeout);
+            readerControls.classList.add('visible');
+            if (colorSettingsPanel.classList.contains('hidden')) { // Only set hide timeout if color settings panel is hidden
+                controlsHideTimeout = setTimeout(() => {
+                    readerControls.classList.remove('visible');
+                }, 3000); // Hide after 3 seconds of inactivity
+            }
+        }
+    });
+
+    // --- Close color settings panel when clicking outside ---
+    document.body.addEventListener('click', (e) => {
+        const isClickInsidePanel = colorSettingsPanel.contains(e.target);
+        const isClickOnToggleButton = toggleColorSettingsBtn.contains(e.target);
+
+        if (!colorSettingsPanel.classList.contains('hidden') && !isClickInsidePanel && !isClickOnToggleButton) {
+            colorSettingsPanel.classList.add('hidden');
         }
     });
 
