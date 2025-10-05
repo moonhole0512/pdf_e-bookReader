@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bookCard.dataset.isbn13 = book.isbn_13 || '';
             bookCard.dataset.isbn10 = book.isbn_10 || '';
 
-            const placeholder = `https://placehold.co/150x225/2a2a2a/ffffff?text=${encodeURIComponent(book.title || 'No Title')}`;
+            const placeholder = `https://placehold.co/150x225/2a2a2a/ffffff?text=No IMG`;
             const cover = book.thumbnail || placeholder;
 
             bookCard.innerHTML = `
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const volCard = document.createElement('div');
             volCard.className = 'book-card';
 
-            const placeholder = `https://placehold.co/300x450/2a2a2a/ffffff?text=${encodeURIComponent(vol.title || 'No Title')}`;
+            const placeholder = `https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG`;
             const cover = vol.cover_url || placeholder;
 
             volCard.innerHTML = `
