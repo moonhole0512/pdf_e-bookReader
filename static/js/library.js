@@ -76,12 +76,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.thumbnail) {
             imagesHtml = `<img src="${data.thumbnail}" alt="Book Cover" id="cover-preview-img" class="cover-preview selected">`;
         } else {
+            const title = data.title || document.getElementById('result-title').textContent;
+            let query = title;
+            if (data.volume_number && !title.includes(String(data.volume_number))) {
+                query += ` ${data.volume_number}`;
+            }
+            query += ' 표지';
+            const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+
             imagesHtml = `
-                <p>표지 이미지를 찾을 수 없습니다.</p>
                 <div id="manual-cover-input-group">
                     <input type="text" id="manual-cover-url" placeholder="이미지 URL을 직접 붙여넣으세요">
-                    <button id="cover-search-btn">표지 검색</button>
+                    <a href="${googleImagesUrl}" target="_blank" rel="noopener noreferrer" id="cover-search-btn">표지 검색</a>
                 </div>
+                <p id="no-cover-message">표지 이미지를 찾을 수 없습니다.</p>
                 <div id="cover-search-results" class="book-grid"></div>
                 <img src="" alt="미리보기" id="cover-preview-img" class="cover-preview" style="display:none; margin-top: 10px;">
             `;
@@ -97,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         if (!data.thumbnail) {
+            const noCoverMessage = document.getElementById('no-cover-message');
             document.getElementById('manual-cover-url').addEventListener('input', (e) => {
                 const url = e.target.value;
                 const previewImg = document.getElementById('cover-preview-img');
@@ -104,34 +113,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     previewImg.src = url;
                     previewImg.style.display = 'block';
                     selectedCoverUrl = url;
-                    // Clear search results if user inputs manually
+                    if (noCoverMessage) noCoverMessage.style.display = 'none';
                     document.getElementById('cover-search-results').innerHTML = '';
-                }
-            });
-
-            document.getElementById('cover-search-btn').addEventListener('click', async () => {
-                const title = document.getElementById('result-title').textContent;
-                const volume = document.querySelector('.isbn-btn[data-file-id="' + fileIdInput.value + '"]').dataset.volumeNumber;
-                const searchResultsDiv = document.getElementById('cover-search-results');
-                searchResultsDiv.innerHTML = '<div class="loader"></div>';
-
-                try {
-                    const response = await fetch(`/api/book/search_cover?title=${encodeURIComponent(title)}&volume=${encodeURIComponent(volume || '')}`);
-                    const searchLinks = await response.json();
-
-                    if (response.ok && searchLinks.length > 0) {
-                        searchResultsDiv.innerHTML = '<p>아래 링크를 열어 표지 이미지의 주소를 복사한 후, 위 입력창에 붙여넣으세요.</p>';
-                        const link = document.createElement('a');
-                        link.href = searchLinks[0];
-                        link.textContent = `'${title}' 표지 이미지 검색 결과 열기`;
-                        link.target = '_blank'; // Open in new tab
-                        link.rel = 'noopener noreferrer';
-                        searchResultsDiv.appendChild(link);
-                    } else {
-                        searchResultsDiv.innerHTML = '<p class="error">검색 링크를 생성할 수 없습니다.</p>';
-                    }
-                } catch (error) {
-                    searchResultsDiv.innerHTML = '<p class="error">검색 중 오류 발생</p>';
+                } else {
+                    previewImg.style.display = 'none';
+                    if (noCoverMessage) noCoverMessage.style.display = 'block';
                 }
             });
         }
@@ -260,44 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            selectedCoverUrl = data.thumbnail;
-            
-            let imagesHtml = '';
-            if (data.thumbnail) {
-                imagesHtml = `<img src="${data.thumbnail}" alt="Book Cover" id="cover-preview-img" class="cover-preview selected">`;
-            } else {
-                imagesHtml = `
-                    <p>표지 이미지를 찾을 수 없습니다.</p>
-                    <div id="manual-cover-input-group">
-                        <input type="text" id="manual-cover-url" placeholder="이미지 URL을 직접 붙여넣으세요">
-                        <img src="" alt="미리보기" id="cover-preview-img" class="cover-preview" style="display:none; margin-top: 10px;">
-                    </div>
-                `;
-            }
-
-            resultsDiv.innerHTML = `
-                <div id="result-info">
-                    <p><strong>제목:</strong> <span id="result-title">${data.title || 'N/A'}</span></p>
-                    <p><strong>저자:</strong> <span id="result-author">${data.author || 'N/A'}</span></p>
-                </div>
-                <div id="result-images">${imagesHtml}</div>
-            `;
-
-            if (!data.thumbnail) {
-                document.getElementById('manual-cover-url').addEventListener('input', (e) => {
-                    const url = e.target.value;
-                    const previewImg = document.getElementById('cover-preview-img');
-                    if (url) {
-                        previewImg.src = url;
-                        previewImg.style.display = 'block';
-                        selectedCoverUrl = url;
-                    } else {
-                        previewImg.style.display = 'none';
-                    }
-                });
-            }
-
-            registerBtn.disabled = false;
+            displaySingleResult(data);
 
         } catch (error) {
             resultsDiv.innerHTML = `<p class="error">네트워크 오류가 발생했습니다.</p>`;

@@ -164,12 +164,48 @@ header {
 header h1 { margin: 0; font-size: 1.5rem; }
 header nav span { margin-right: 1rem; }
 header nav a { color: var(--accent-color); text-decoration: none; }
-header nav a.scan-btn { 
-    background: var(--accent-color); 
-    color: white; 
-    padding: 0.5rem 1rem; 
+
+.scan-btn {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 0.5rem 1rem;
     border-radius: 5px;
     margin-left: 1rem;
+    cursor: pointer;
+    transition: background 0.3s, color 0.3s;
+}
+
+.scan-btn:hover, .scan-btn:disabled {
+    background: var(--accent-color);
+    color: white;
+}
+
+.scan-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* --- Toast Notification --- */
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #28a745;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s, visibility 0.5s, bottom 0.5s;
+}
+
+.toast-notification.show {
+    opacity: 1;
+    visibility: visible;
+    bottom: 40px;
 }
 
 .library-container { padding: 2rem; }
@@ -484,11 +520,14 @@ header nav a.scan-btn {
     color: var(--text-color);
 }
 
-#isbn-search-btn, #isbn-register-btn, #modal-close-btn {
+#isbn-search-btn, #isbn-register-btn, #modal-close-btn, #cover-search-btn {
     padding: 10px 15px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    text-decoration: none; /* For <a> tag */
+    color: white; /* For <a> tag */
+    background-color: var(--accent-color); /* For <a> tag */
 }
 
 #isbn-search-btn { background-color: var(--accent-color); color: white; }
@@ -502,7 +541,7 @@ header nav a.scan-btn {
 }
 
 #result-images {
-    flex-basis: 150px;
+    flex-basis: 350px;
     flex-shrink: 0;
 }
 
@@ -521,12 +560,14 @@ header nav a.scan-btn {
 
 #manual-cover-input-group {
     margin-top: 1rem;
+    display: flex;
+    gap: 10px;
+    align-items: center;
 }
 
 #manual-cover-url {
-    width: 100%;
+    flex-grow: 1; /* Take up available space */
     padding: 8px;
-    margin-top: 0.5rem;
     background: #444;
     border: 1px solid #666;
     color: var(--text-color);

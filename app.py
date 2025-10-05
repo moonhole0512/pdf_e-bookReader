@@ -104,12 +104,16 @@ def index():
         return grouped_list
 
     # 2. 독서 중인 책 목록 (그룹화)
-    reading_book_ids = db.session.query(File.book_id).join(ReadingState).filter(ReadingState.user_id == g.user.id).distinct()
+    reading_book_ids_query = db.session.query(File.book_id).join(ReadingState).filter(ReadingState.user_id == g.user.id).order_by(desc(ReadingState.last_read_at)).distinct()
     if last_read_state:
-        reading_book_ids = reading_book_ids.filter(File.book_id != last_read_state.file.book_id)
+        reading_book_ids_query = reading_book_ids_query.filter(File.book_id != last_read_state.file.book_id)
     
-    reading_files_query = File.query.filter(File.book_id.in_(reading_book_ids)).all()
-    reading_groups = group_files_by_book(reading_files_query)
+    reading_book_ids = [item[0] for item in reading_book_ids_query.limit(5).all()]
+
+    reading_groups = []
+    if reading_book_ids:
+        reading_files_query = File.query.filter(File.book_id.in_(reading_book_ids)).all()
+        reading_groups = group_files_by_book(reading_files_query)
 
     # 3. 추천 책 목록 (랜덤 5개 그룹화)
     all_book_ids = db.session.query(Book.id).all()
@@ -384,27 +388,7 @@ def update_file_info():
         "cover_url": file_obj.cover_url
     }})
 
-@app.route('/api/book/search_cover')
-def search_cover():
-    title = request.args.get('title')
-    volume = request.args.get('volume')
-    query = title # Start with the title
-    # Add volume to query only if it's not already in the title
-    if volume and str(volume) not in title:
-        query += f' {volume}'
-    query += ' 표지'
-    
-    try:
-        # Construct a URL that will perform a Google Images search
-        google_images_url = f"https://www.google.com/search?tbm=isch&q={query.replace(' ', '+')}"
-        
-        # Return a list containing just this one link
-        # The frontend will present this to the user
-        return jsonify([google_images_url])
 
-    except Exception as e:
-        app.logger.error(f"Cover search link generation failed: {e}")
-        return jsonify([]), 500
 
 if __name__ == '__main__':
     init_db()
