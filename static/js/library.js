@@ -384,10 +384,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Autocomplete Logic ---
     const searchInput = document.querySelector('input[name="search_query"]');
     const autocompleteResults = document.getElementById('autocomplete-results');
+    let activeIndex = -1;
 
     if (searchInput && autocompleteResults) {
         searchInput.addEventListener('input', async () => {
             const query = searchInput.value;
+            activeIndex = -1; // Reset index on new input
             if (query.length < 1) {
                 autocompleteResults.innerHTML = '';
                 return;
@@ -414,6 +416,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Autocomplete error:', error);
             }
         });
+
+        searchInput.addEventListener('keydown', (e) => {
+            const items = autocompleteResults.querySelectorAll('.autocomplete-item');
+            if (items.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    activeIndex = (activeIndex + 1) % items.length;
+                    updateHighlight(items);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    activeIndex = (activeIndex - 1 + items.length) % items.length;
+                    updateHighlight(items);
+                    break;
+                case 'Enter':
+                    if (activeIndex > -1) {
+                        e.preventDefault();
+                        searchInput.value = items[activeIndex].textContent;
+                        autocompleteResults.innerHTML = '';
+                    }
+                    break;
+                case 'Escape':
+                    autocompleteResults.innerHTML = '';
+                    break;
+            }
+        });
+
+        function updateHighlight(items) {
+            items.forEach((item, index) => {
+                if (index === activeIndex) {
+                    item.classList.add('highlighted');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('highlighted');
+                }
+            });
+        }
 
         // Hide autocomplete when clicking outside
         document.addEventListener('click', (e) => {

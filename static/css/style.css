@@ -258,7 +258,8 @@ header nav a { color: var(--accent-color); text-decoration: none; }
     cursor: pointer;
 }
 
-.autocomplete-item:hover {
+.autocomplete-item:hover,
+.autocomplete-item.highlighted {
     background: var(--accent-color);
 }
 
