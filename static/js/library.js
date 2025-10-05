@@ -332,4 +332,94 @@ document.addEventListener('DOMContentLoaded', () => {
     volumeModal.addEventListener('click', (e) => {
         if (e.target === volumeModal) closeVolumeModal();
     });
+
+    // --- Scan Button Logic ---
+    const scanPdfBtn = document.getElementById('scan-pdf-btn');
+    const toast = document.getElementById('toast-notification');
+
+    function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                location.reload();
+            }, 500); // Wait for fade out animation
+        }, 2500);
+    }
+
+    if (scanPdfBtn) {
+        scanPdfBtn.addEventListener('click', async function(event) {
+            event.preventDefault();
+            
+            const originalText = scanPdfBtn.textContent;
+            scanPdfBtn.textContent = '스캔중...';
+            scanPdfBtn.disabled = true;
+
+            try {
+                const response = await fetch('/admin/scan', { // Hardcoded URL
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    showToast('스캔 완료!');
+                } else {
+                    const errorData = await response.json();
+                    alert('스캔 실패: ' + (errorData.message || response.statusText));
+                    scanPdfBtn.textContent = originalText;
+                    scanPdfBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error during PDF scan:', error);
+                alert('스캔 중 오류가 발생했습니다.');
+                scanPdfBtn.textContent = originalText;
+                scanPdfBtn.disabled = false;
+            }
+        });
+    }
+
+    // --- Autocomplete Logic ---
+    const searchInput = document.querySelector('input[name="search_query"]');
+    const autocompleteResults = document.getElementById('autocomplete-results');
+
+    if (searchInput && autocompleteResults) {
+        searchInput.addEventListener('input', async () => {
+            const query = searchInput.value;
+            if (query.length < 1) {
+                autocompleteResults.innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/books/autocomplete?q=${encodeURIComponent(query)}`);
+                const titles = await response.json();
+
+                autocompleteResults.innerHTML = '';
+                if (titles.length > 0) {
+                    titles.forEach(title => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.textContent = title;
+                        item.addEventListener('click', () => {
+                            searchInput.value = title;
+                            autocompleteResults.innerHTML = '';
+                        });
+                        autocompleteResults.appendChild(item);
+                    });
+                }
+            } catch (error) {
+                console.error('Autocomplete error:', error);
+            }
+        });
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-form')) {
+                autocompleteResults.innerHTML = '';
+            }
+        });
+    }
 });

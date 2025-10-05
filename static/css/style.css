@@ -232,9 +232,34 @@ header nav a { color: var(--accent-color); text-decoration: none; }
 }
 
 .search-form {
+    position: relative; /* Needed for autocomplete positioning */
     display: flex;
     gap: 10px;
     margin-left: 2rem; /* Add space between title and form */
+}
+
+.autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #3a3a3a;
+    border: 1px solid #555;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.autocomplete-item {
+    padding: 10px 15px;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.autocomplete-item:hover {
+    background: var(--accent-color);
 }
 
 .search-form input {

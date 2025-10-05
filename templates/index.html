@@ -48,8 +48,9 @@
             <div class="bookshelf-header">
                 <h2>모든 책</h2>
                 <form action="{{ url_for('index') }}" method="GET" class="search-form">
-                    <input type="text" name="search_query" placeholder="책 제목 검색..." value="{{ search_query or '' }}">
+                    <input type="text" name="search_query" placeholder="책 제목 검색..." value="{{ search_query or '' }}" autocomplete="off">
                     <button type="submit">검색</button>
+                    <div id="autocomplete-results" class="autocomplete-results"></div>
                 </form>
             </div>
             <div class="book-grid">
@@ -170,55 +171,5 @@
     <div id="toast-notification" class="toast-notification"></div>
 
     <script src="{{ url_for('static', filename='js/library.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const scanPdfBtn = document.getElementById('scan-pdf-btn');
-            const toast = document.getElementById('toast-notification');
-
-            function showToast(message) {
-                toast.textContent = message;
-                toast.classList.add('show');
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                    setTimeout(() => {
-                        location.reload();
-                    }, 500); // Wait for fade out animation
-                }, 2500);
-            }
-
-            if (scanPdfBtn) {
-                scanPdfBtn.addEventListener('click', async function(event) {
-                    event.preventDefault();
-                    
-                    const originalText = scanPdfBtn.textContent;
-                    scanPdfBtn.textContent = '스캔중...';
-                    scanPdfBtn.disabled = true;
-
-                    try {
-                        const response = await fetch('{{ url_for('scan_files') }}', {
-                            method: 'GET',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        
-                        if (response.ok) {
-                            showToast('스캔 완료!');
-                        } else {
-                            const errorData = await response.json();
-                            alert('스캔 실패: ' + (errorData.message || response.statusText));
-                            scanPdfBtn.textContent = originalText;
-                            scanPdfBtn.disabled = false;
-                        }
-                    } catch (error) {
-                        console.error('Error during PDF scan:', error);
-                        alert('스캔 중 오류가 발생했습니다.');
-                        scanPdfBtn.textContent = originalText;
-                        scanPdfBtn.disabled = false;
-                    }
-                });
-            }
-        });
-    </script>
 </body>
 </html>

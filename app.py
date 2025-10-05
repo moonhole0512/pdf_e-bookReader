@@ -398,6 +398,16 @@ def update_file_info():
         "cover_url": file_obj.cover_url
     }})
 
+@app.route('/api/books/autocomplete')
+def autocomplete_books():
+    query = request.args.get('q', '')
+    if not query:
+        return jsonify([])
+
+    books = db.session.query(Book.title).filter(Book.title.ilike(f'%{query}%')).distinct().limit(10).all()
+    titles = [book[0] for book in books]
+    return jsonify(titles)
+
 
 
 if __name__ == '__main__':
