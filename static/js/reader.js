@@ -352,6 +352,37 @@ document.addEventListener('DOMContentLoaded', () => {
         renderQueue(pageNum);
     });
 
+    // --- Swipe Navigation ---
+    let startX = 0;
+    let startY = 0;
+    const swipeThreshold = 50; // Minimum pixels to be considered a swipe
+
+    viewer.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    });
+
+    viewer.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = startX - endX;
+        const diffY = startY - endY;
+
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+            // Horizontal swipe
+            if (diffX > 0) {
+                // Swiped left, go to next page
+                onNextPage();
+            } else {
+                // Swiped right, go to previous page
+                onPrevPage();
+            }
+        }
+        // Reset start coordinates
+        startX = 0;
+        startY = 0;
+    });
+
     function debounce(func, delay) {
         let timeout;
         return function(...args) {
