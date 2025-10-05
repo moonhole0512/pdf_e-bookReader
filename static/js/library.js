@@ -462,5 +462,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 autocompleteResults.innerHTML = '';
             }
         });
+
+        // --- AJAX Pagination Logic ---
+        const allBooksSectionContent = document.getElementById('all-books-section-content');
+
+        if (allBooksSectionContent) {
+            document.addEventListener('click', async (e) => {
+                const pageLink = e.target.closest('.pagination-container .page-link');
+                if (pageLink && !pageLink.closest('.page-item.disabled')) {
+                    e.preventDefault();
+                    const url = new URL(pageLink.href);
+                    const page = url.searchParams.get('page');
+                    const searchQuery = url.searchParams.get('search_query') || '';
+
+                    try {
+                        const response = await fetch(`/api/books?page=${page}&search_query=${encodeURIComponent(searchQuery)}`);
+                        const html = await response.text();
+                        allBooksSectionContent.innerHTML = html;
+                        history.pushState({ page: page, search_query: searchQuery }, '', url.href);
+                    } catch (error) {
+                        console.error('Error fetching pagination content:', error);
+                    }
+                }
+            });
+
+            // Handle browser back/forward buttons
+            window.addEventListener('popstate', async (e) => {
+                if (e.state && e.state.page) {
+                    const page = e.state.page;
+                    const searchQuery = e.state.search_query || '';
+                    try {
+                        const response = await fetch(`/api/books?page=${page}&search_query=${encodeURIComponent(searchQuery)}`);
+                        const html = await response.text();
+                        allBooksSectionContent.innerHTML = html;
+                    } catch (error) {
+                        console.error('Error fetching pagination content on popstate:', error);
+                    }
+                }
+            });
+        }
     }
 });

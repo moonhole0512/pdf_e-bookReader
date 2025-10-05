@@ -53,58 +53,9 @@
                     <div id="autocomplete-results" class="autocomplete-results"></div>
                 </form>
             </div>
-            <div class="book-grid">
-                {% for group in all_groups %}
-                    <div class="book-card" 
-                         data-is-group="true" 
-                         data-volume-count="{{ group.volume_count }}" 
-                         data-single-url="{{ url_for('reader', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
-                         data-volumes='{{ group.files | tojson }}'
-                         data-series-title="{{ group.book.title }}">
-                        
-                        <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=' + group.book.title }}" alt="{{ group.book.title }}">
-                        
-                        {% if group.volume_count > 1 %}
-                        <div class="volume-badge">{{ group.volume_count }}권</div>
-                        {% endif %}
-
-                        <div class="book-info">
-                            <h3>{{ group.book.title }}</h3>
-                            <p>{{ group.cover_file.author or group.book.author }}</p>
-                        </div>
-                        {% if group.volume_count == 1 %}
-                        <button class="isbn-btn" 
-                                data-file-id="{{ group.files[0].id }}" 
-                                data-book-title="{{ group.book.title }}" 
-                                data-volume-number="{{ group.files[0].volume_number }}">ISBN</button>
-                        {% endif %}
-                    </div>
-                {% endfor %}
+            <div id="all-books-section-content">
+                {% include '_book_list.html' %}
             </div>
-            {% if pagination %}
-            <nav class="pagination-container">
-                <ul class="pagination">
-                    {# Prev Page Link #}
-                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('index', page=pagination.prev_num, search_query=search_query) if pagination.has_prev else '#' }}">&laquo;</a>
-                    </li>
-                    {# Page Numbers #}
-                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                        {% if page_num %}
-                            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                                <a class="page-link" href="{{ url_for('index', page=page_num, search_query=search_query) }}">{{ page_num }}</a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled"><span class="page-link">...</span></li>
-                        {% endif %}
-                    {% endfor %}
-                    {# Next Page Link #}
-                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('index', page=pagination.next_num, search_query=search_query) if pagination.has_next else '#' }}">&raquo;</a>
-                    </li>
-                </ul>
-            </nav>
-            {% endif %}
         </section>
         {% endif %}
 

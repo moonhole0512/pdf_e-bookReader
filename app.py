@@ -22,6 +22,45 @@ def load_logged_in_user():
     user_id = session.get('user_id')
     g.user = User.query.get(user_id) if user_id is not None else None
 
+def group_files_by_book(files):
+    groups = {}
+    for file in files:
+        if file.book_id not in groups:
+            groups[file.book_id] = []
+        groups[file.book_id].append(file)
+    
+    grouped_list = []
+    for book_id, file_list in groups.items():
+        file_list.sort(key=lambda f: f.volume_number)
+        cover_file = next((f for f in file_list if f.volume_number == 1), file_list[0])
+        
+        # Make files serializable for template
+        serializable_files = []
+        for f in file_list:
+            # Get reading state for the current user and file
+            reading_state = ReadingState.query.filter_by(user_id=g.user.id, file_id=f.id).first()
+            current_page = reading_state.current_page if reading_state else 0
+
+            serializable_files.append({
+                "id": f.id, 
+                "title": f.title or f.book.title, 
+                "author": f.author or f.book.author, 
+                "volume_number": f.volume_number, 
+                "cover_url": f.cover_url or f.book.cover_url,
+                "current_page": current_page,
+                "total_pages": f.total_pages
+            })
+
+        grouped_list.append({
+            "book": file_list[0].book, # Representative book
+            "files": serializable_files,
+            "volume_count": len(file_list),
+            "cover_file": cover_file
+        })
+    
+    grouped_list.sort(key=lambda g: g['book'].title)
+    return grouped_list
+
 def init_db():
     with app.app_context():
         # 설정에서 절대 DB 경로를 가져옵니다.
@@ -415,8 +454,27 @@ def autocomplete_books():
     titles = [book[0] for book in books]
     return jsonify(titles)
 
+@app.route('/api/books')
+def get_books():
+    page = request.args.get('page', 1, type=int)
+    search_query = request.args.get('search_query', '')
+    
+    all_books_query = Book.query.order_by(Book.title)
+    if search_query:
+        all_books_query = all_books_query.filter(Book.title.ilike(f'%{search_query}%'))
+
+    pagination = all_books_query.paginate(page=page, per_page=10, error_out=False)
+    all_book_ids = [item.id for item in pagination.items]
+
+    all_groups = []
+    if all_book_ids:
+        all_files_query = File.query.filter(File.book_id.in_(all_book_ids)).all()
+        all_groups = group_files_by_book(all_files_query)
+    
+    return render_template('_book_list.html', all_groups=all_groups, pagination=pagination, search_query=search_query)
+
 
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=False, host='0.0.0.0', port=8000)
