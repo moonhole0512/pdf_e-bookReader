@@ -162,6 +162,12 @@ header {
     border-bottom: 1px solid #333;
 }
 header h1 { margin: 0; font-size: 1.5rem; }
+
+.total-book-count {
+    font-size: 0.9rem;
+    color: #aaa;
+    font-weight: normal;
+}
 header nav span { margin-right: 1rem; }
 header nav a { color: var(--accent-color); text-decoration: none; }
 
@@ -206,6 +212,56 @@ header nav a { color: var(--accent-color); text-decoration: none; }
     opacity: 1;
     visibility: visible;
     bottom: 40px;
+}
+
+/* --- Pagination --- */
+.pagination-container {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.page-item .page-link {
+    color: var(--text-color);
+    background-color: var(--secondary-bg);
+    border: 1px solid #444;
+    padding: 10px 15px;
+    display: block;
+    text-decoration: none;
+    transition: background-color 0.3s;
+}
+
+.page-item:not(:first-child) .page-link {
+    border-left: none;
+}
+
+.page-item:hover .page-link {
+    background-color: #3a3a3a;
+}
+
+.page-item.active .page-link {
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.page-item.disabled .page-link {
+    color: #666;
+    pointer-events: none;
+    background-color: #222;
+}
+
+.page-item.disabled .page-link:hover {
+    background-color: #222;
 }
 
 .library-container { padding: 2rem; }
