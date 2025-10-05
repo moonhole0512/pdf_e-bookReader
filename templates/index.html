@@ -45,7 +45,13 @@
 
         {% if all_groups %}
         <section class="bookshelf">
-            <h2>모든 책</h2>
+            <div class="bookshelf-header">
+                <h2>모든 책</h2>
+                <form action="{{ url_for('index') }}" method="GET" class="search-form">
+                    <input type="text" name="search_query" placeholder="책 제목 검색..." value="{{ search_query or '' }}">
+                    <button type="submit">검색</button>
+                </form>
+            </div>
             <div class="book-grid">
                 {% for group in all_groups %}
                     <div class="book-card" 

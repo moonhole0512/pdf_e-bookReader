@@ -126,14 +126,24 @@ def index():
     recommended_groups = group_files_by_book(recommended_files_query)
 
     # 4. 모든 책 목록 (그룹화)
-    all_files_query = File.query.all()
-    all_groups = group_files_by_book(all_files_query)
+    search_query = request.args.get('search_query', '')
+    all_book_ids_query = db.session.query(Book.id).order_by(Book.title)
+    if search_query:
+        all_book_ids_query = all_book_ids_query.filter(Book.title.ilike(f'%{search_query}%'))
+
+    all_book_ids = [item[0] for item in all_book_ids_query.all()] # Remove limit for now when searching
+
+    all_groups = []
+    if all_book_ids:
+        all_files_query = File.query.filter(File.book_id.in_(all_book_ids)).all()
+        all_groups = group_files_by_book(all_files_query)
 
     return render_template('index.html', 
                            last_read_file=last_read_state.file if last_read_state else None,
                            reading_groups=reading_groups,
                            recommended_groups=recommended_groups,
-                           all_groups=all_groups)
+                           all_groups=all_groups,
+                           search_query=search_query)
 
 @app.route('/reader/<int:file_id>')
 def reader(file_id):
