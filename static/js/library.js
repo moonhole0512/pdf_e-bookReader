@@ -44,8 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsDiv.innerHTML = '<div class="loader"></div><p style="text-align: center;">책 정보 자동 검색 중...</p>';
         registerBtn.disabled = true;
         isbnInput.value = ''; // Clear manual ISBN input
-        isbnInput.style.display = 'none'; // Hide manual ISBN input initially
-        searchBtn.style.display = 'none'; // Hide manual search button initially
 
         try {
             const response = await fetch(`/api/book/lookup_by_title_volume?title=${encodeURIComponent(bookTitle)}&volume=${encodeURIComponent(volumeNumber || '')}`);
@@ -62,19 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // No unique result, fall back to manual ISBN input
                 resultsDiv.innerHTML = `<p class="error">${data.error || '책 정보를 자동으로 찾을 수 없습니다. 수동으로 ISBN을 입력해주세요.'}</p>`;
-                isbnInput.style.display = 'block';
-                searchBtn.style.display = 'block';
             }
 
         } catch (error) {
             console.error('Error during automatic book lookup:', error);
             resultsDiv.innerHTML = `<p class="error">자동 검색 중 네트워크 오류가 발생했습니다. 수동으로 ISBN을 입력해주세요.</p>`;
-            isbnInput.style.display = 'block';
-            searchBtn.style.display = 'block';
         }
     };
 
     const displaySingleResult = (data) => {
+        resultsDiv.classList.remove('has-multiple-results');
         selectedCoverUrl = data.thumbnail;
         
         let imagesHtml = '';
@@ -85,8 +80,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>표지 이미지를 찾을 수 없습니다.</p>
                 <div id="manual-cover-input-group">
                     <input type="text" id="manual-cover-url" placeholder="이미지 URL을 직접 붙여넣으세요">
-                    <img src="" alt="미리보기" id="cover-preview-img" class="cover-preview" style="display:none; margin-top: 10px;">
+                    <button id="cover-search-btn">표지 검색</button>
                 </div>
+                <div id="cover-search-results" class="book-grid"></div>
+                <img src="" alt="미리보기" id="cover-preview-img" class="cover-preview" style="display:none; margin-top: 10px;">
             `;
         }
 
@@ -107,8 +104,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     previewImg.src = url;
                     previewImg.style.display = 'block';
                     selectedCoverUrl = url;
-                } else {
-                    previewImg.style.display = 'none';
+                    // Clear search results if user inputs manually
+                    document.getElementById('cover-search-results').innerHTML = '';
+                }
+            });
+
+            document.getElementById('cover-search-btn').addEventListener('click', async () => {
+                const title = document.getElementById('result-title').textContent;
+                const volume = document.querySelector('.isbn-btn[data-file-id="' + fileIdInput.value + '"]').dataset.volumeNumber;
+                const searchResultsDiv = document.getElementById('cover-search-results');
+                searchResultsDiv.innerHTML = '<div class="loader"></div>';
+
+                try {
+                    const response = await fetch(`/api/book/search_cover?title=${encodeURIComponent(title)}&volume=${encodeURIComponent(volume || '')}`);
+                    const searchLinks = await response.json();
+
+                    if (response.ok && searchLinks.length > 0) {
+                        searchResultsDiv.innerHTML = '<p>아래 링크를 열어 표지 이미지의 주소를 복사한 후, 위 입력창에 붙여넣으세요.</p>';
+                        const link = document.createElement('a');
+                        link.href = searchLinks[0];
+                        link.textContent = `'${title}' 표지 이미지 검색 결과 열기`;
+                        link.target = '_blank'; // Open in new tab
+                        link.rel = 'noopener noreferrer';
+                        searchResultsDiv.appendChild(link);
+                    } else {
+                        searchResultsDiv.innerHTML = '<p class="error">검색 링크를 생성할 수 없습니다.</p>';
+                    }
+                } catch (error) {
+                    searchResultsDiv.innerHTML = '<p class="error">검색 중 오류 발생</p>';
                 }
             });
         }
@@ -117,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const displayMultipleResults = (results) => {
+        resultsDiv.classList.add('has-multiple-results');
         resultsDiv.innerHTML = '<p>여러 결과가 검색되었습니다. 등록할 책을 선택해주세요.</p>';
         const selectionGrid = document.createElement('div');
         selectionGrid.className = 'book-grid';
@@ -172,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeIsbnModal = () => {
         isbnModal.classList.add('hidden');
         resultsDiv.innerHTML = '';
+        resultsDiv.classList.remove('has-multiple-results');
         isbnInput.value = '';
         registerBtn.disabled = true;
         selectedCoverUrl = null;

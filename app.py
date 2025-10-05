@@ -384,6 +384,28 @@ def update_file_info():
         "cover_url": file_obj.cover_url
     }})
 
+@app.route('/api/book/search_cover')
+def search_cover():
+    title = request.args.get('title')
+    volume = request.args.get('volume')
+    query = title # Start with the title
+    # Add volume to query only if it's not already in the title
+    if volume and str(volume) not in title:
+        query += f' {volume}'
+    query += ' 표지'
+    
+    try:
+        # Construct a URL that will perform a Google Images search
+        google_images_url = f"https://www.google.com/search?tbm=isch&q={query.replace(' ', '+')}"
+        
+        # Return a list containing just this one link
+        # The frontend will present this to the user
+        return jsonify([google_images_url])
+
+    except Exception as e:
+        app.logger.error(f"Cover search link generation failed: {e}")
+        return jsonify([]), 500
+
 if __name__ == '__main__':
     init_db()
     app.run(debug=True, host='0.0.0.0')
