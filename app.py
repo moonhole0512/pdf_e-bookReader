@@ -7,7 +7,9 @@ from sqlalchemy import func, desc
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
 import requests
+import time
 import random
+import logging
 
 from config import Config
 from models import db, User, Book, File, ReadingState
@@ -20,7 +22,7 @@ db.init_app(app)
 @app.before_request
 def load_logged_in_user():
     user_id = session.get('user_id')
-    g.user = User.query.get(user_id) if user_id is not None else None
+    g.user = db.session.get(User, user_id) if user_id is not None else None
 
 def group_files_by_book(files):
     groups = {}
@@ -69,7 +71,9 @@ def init_db():
         db_dir = os.path.dirname(db_path)
         os.makedirs(db_dir, exist_ok=True)
 
+        app.logger.info(f"Database path: {db_path}")
         db.create_all()
+        app.logger.info("Database initialized.")
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -78,6 +82,7 @@ def login():
         username = request.form['username']
         user = User.query.filter_by(username=username).first()
         if not user:
+            app.logger.info(f"New user '{username}' created.")
             user = User(username=username, password_hash=None) # No password needed
             db.session.add(user)
             db.session.commit()
@@ -236,6 +241,7 @@ def update_status():
 
     state = ReadingState.query.filter_by(user_id=g.user.id, file_id=file_id).first()
     if state:
+        app.logger.info(f"User '{g.user.username}' updated reading status for file_id {file_id} to page {current_page}.")
         state.current_page = int(current_page)
         db.session.commit()
         return jsonify({'success': True, 'last_read_at': state.last_read_at.isoformat()})
@@ -257,6 +263,7 @@ def get_next_volume(file_id):
 
 @app.route('/admin/scan', methods=['GET']) # Should be POST in production with auth
 def scan_files():
+    app.logger.info("Starting PDF scan...")
     pdf_root = app.config['PDF_ROOT_PATH']
     if not pdf_root or not os.path.exists(pdf_root):
         return jsonify({"error": "PDF_ROOT_PATH is not configured or does not exist."}), 500
@@ -269,6 +276,7 @@ def scan_files():
         if pdf_path_str in existing_files:
             continue
 
+        app.logger.info(f"Processing new file: {pdf_path_str}")
         try:
             # Extract metadata from filename (e.g., "Book Title - 01.pdf")
             filename = pdf_path.stem
@@ -285,6 +293,7 @@ def scan_files():
             # Get or create book
             book = Book.query.filter_by(title=title).first()
             if not book:
+                app.logger.info(f"New book found: '{title}'. Creating new entry.")
                 book = Book(title=title, author="Unknown") # Default author
                 db.session.add(book)
                 db.session.flush() # To get book.id
@@ -306,17 +315,23 @@ def scan_files():
             added_files.append(pdf_path_str)
 
         except Exception as e:
+            db.session.rollback()
             app.logger.error(f"Failed to process {pdf_path_str}: {e}")
+
+        # Add a 100ms delay to reduce system load
+        time.sleep(0.1)
 
     # Update total_volumes for each book
     books_to_update = db.session.query(Book.id).join(File).filter(File.file_path.in_(added_files)).distinct()
     for book_id_tuple in books_to_update:
         book_id = book_id_tuple[0]
         count = db.session.query(func.count(File.id)).filter_by(book_id=book_id).scalar()
-        book_to_update = Book.query.get(book_id)
+        book_to_update = db.session.get(Book, book_id)
         book_to_update.total_volumes = count
 
+    app.logger.info(f"Committing {len(added_files)} new files and volume updates to the database.")
     db.session.commit()
+    app.logger.info("Scan complete.")
     return jsonify({"message": f"Scan complete. Added {len(added_files)} new files.", "files": added_files})
 
 @app.route('/admin/metadata/update', methods=['POST'])
@@ -326,7 +341,8 @@ def update_metadata():
     title = data.get('title')
     author = data.get('author')
 
-    book = Book.query.get_or_404(book_id)
+    book = db.get_or_404(Book, book_id)
+    app.logger.info(f"Updating metadata for book_id {book_id}: title='{title}', author='{author}'")
     if title: book.title = title
     if author: book.author = author
     db.session.commit()
@@ -353,7 +369,7 @@ def lookup_by_title_volume():
 
     try:
         url = f"https://www.googleapis.com/books/v1/volumes?q={query}&langRestrict=ko"
-        print(f"Google Books API URL: {url}") # Debug print
+        app.logger.debug(f"Google Books API URL: {url}")
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
@@ -476,5 +492,6 @@ def get_books():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     init_db()
-    app.run(debug=False, host='0.0.0.0', port=8000)
+    app.run(debug=False, host='0.0.0.0', port=8000, threaded=False)
