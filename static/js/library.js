@@ -335,17 +335,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Scan Button Logic ---
     const scanPdfBtn = document.getElementById('scan-pdf-btn');
+    const scanSettingsBtn = document.getElementById('scan-settings-btn');
+    const scanSettingsModal = document.getElementById('scan-settings-modal');
+    const scanSettingsCloseBtn = document.getElementById('scan-settings-close-btn');
+    const scanSettingsSaveBtn = document.getElementById('scan-settings-save-btn');
+    const scanBatchSizeInput = document.getElementById('scan-batch-size');
     const toast = document.getElementById('toast-notification');
 
-    function showToast(message) {
+    // Load saved batch size or use default
+    scanBatchSizeInput.value = localStorage.getItem('scanBatchSize') || 30;
+
+    function showToast(message, isError = false) {
         toast.textContent = message;
+        toast.style.backgroundColor = isError ? '#dc3545' : '#28a745';
         toast.classList.add('show');
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => {
-                location.reload();
-            }, 500); // Wait for fade out animation
+            if (!isError) {
+                setTimeout(() => {
+                    location.reload();
+                }, 500); // Wait for fade out animation
+            }
         }, 2500);
+    }
+
+    if (scanSettingsBtn) {
+        scanSettingsBtn.addEventListener('click', () => {
+            scanSettingsModal.classList.remove('hidden');
+        });
+
+        scanSettingsCloseBtn.addEventListener('click', () => {
+            scanSettingsModal.classList.add('hidden');
+        });
+
+        scanSettingsSaveBtn.addEventListener('click', () => {
+            const batchSize = scanBatchSizeInput.value;
+            localStorage.setItem('scanBatchSize', batchSize);
+            scanSettingsModal.classList.add('hidden');
+            showToast(`스캔 단위가 ${batchSize}로 저장되었습니다.`);
+        });
+
+        scanSettingsModal.addEventListener('click', (e) => {
+            if (e.target === scanSettingsModal) {
+                scanSettingsModal.classList.add('hidden');
+            }
+        });
     }
 
     if (scanPdfBtn) {
@@ -355,28 +389,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalText = scanPdfBtn.textContent;
             scanPdfBtn.textContent = '스캔중...';
             scanPdfBtn.disabled = true;
+            scanSettingsBtn.disabled = true;
+
+            const batchSize = localStorage.getItem('scanBatchSize') || 30;
 
             try {
-                const response = await fetch('/admin/scan', { // Hardcoded URL
+                const response = await fetch(`/admin/scan?batch_size=${batchSize}`, { // Pass batch_size as query param
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
                     }
                 });
                 
+                const data = await response.json();
+
                 if (response.ok) {
-                    showToast('스캔 완료!');
+                    showToast(data.message || '스캔 완료!');
                 } else {
-                    const errorData = await response.json();
-                    alert('스캔 실패: ' + (errorData.message || response.statusText));
+                    showToast('스캔 실패: ' + (data.error || response.statusText), true);
                     scanPdfBtn.textContent = originalText;
                     scanPdfBtn.disabled = false;
+                    scanSettingsBtn.disabled = false;
                 }
             } catch (error) {
                 console.error('Error during PDF scan:', error);
-                alert('스캔 중 오류가 발생했습니다.');
+                showToast('스캔 중 오류가 발생했습니다.', true);
                 scanPdfBtn.textContent = originalText;
                 scanPdfBtn.disabled = false;
+                scanSettingsBtn.disabled = false;
             }
         });
     }

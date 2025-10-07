@@ -7,7 +7,7 @@
              data-volumes='{{ group.files | tojson }}'
              data-series-title="{{ group.book.title }}">
             
-            <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=' + group.book.title }}" alt="{{ group.book.title }}">
+            <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ group.book.title }}">
             
             {% if group.volume_count > 1 %}
             <div class="volume-badge">{{ group.volume_count }}권</div>

@@ -3,7 +3,8 @@ import os
 import re
 from pathlib import Path
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for, g, send_from_directory
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, text
+from sqlalchemy.exc import OperationalError
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
 import requests
@@ -24,8 +25,17 @@ def load_logged_in_user():
     user_id = session.get('user_id')
     g.user = db.session.get(User, user_id) if user_id is not None else None
 
-def group_files_by_book(files):
+def group_files_by_book(files, user_id):
     groups = {}
+    file_ids = [f.id for f in files]
+    
+    # Fetch all relevant reading states in one query
+    reading_states = db.session.query(ReadingState).filter(
+        ReadingState.user_id == user_id,
+        ReadingState.file_id.in_(file_ids)
+    ).all()
+    states_by_file_id = {state.file_id: state for state in reading_states}
+
     for file in files:
         if file.book_id not in groups:
             groups[file.book_id] = []
@@ -36,11 +46,9 @@ def group_files_by_book(files):
         file_list.sort(key=lambda f: f.volume_number)
         cover_file = next((f for f in file_list if f.volume_number == 1), file_list[0])
         
-        # Make files serializable for template
         serializable_files = []
         for f in file_list:
-            # Get reading state for the current user and file
-            reading_state = ReadingState.query.filter_by(user_id=g.user.id, file_id=f.id).first()
+            reading_state = states_by_file_id.get(f.id)
             current_page = reading_state.current_page if reading_state else 0
 
             serializable_files.append({
@@ -54,7 +62,7 @@ def group_files_by_book(files):
             })
 
         grouped_list.append({
-            "book": file_list[0].book, # Representative book
+            "book": file_list[0].book,
             "files": serializable_files,
             "volume_count": len(file_list),
             "cover_file": cover_file
@@ -74,6 +82,25 @@ def init_db():
         app.logger.info(f"Database path: {db_path}")
         db.create_all()
         app.logger.info("Database initialized.")
+
+
+def unlock_database():
+    """DB 락을 해제합니다."""
+    with app.app_context():
+        try:
+            # 간단한 쿼리를 실행하여 연결을 확인하고 복구를 트리거합니다.
+            db.session.execute(text('SELECT 1'))
+            db.session.commit()
+        except OperationalError as e:
+            if "database is locked" in str(e).lower():
+                app.logger.warning("데이터베이스가 잠겨 있었습니다. 빈 트랜잭션을 커밋하여 잠금 해제를 시도합니다.")
+                # 롤백 후 커밋하여 잠금을 해제합니다.
+                db.session.rollback()
+                db.session.commit()
+                app.logger.info("데이터베이스 잠금이 해제되었습니다.")
+            else:
+                # 다른 OperationalError는 다시 발생시킵니다.
+                raise
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -107,46 +134,6 @@ def index():
     # 1. 가장 최근 읽은 책 (1권) - 유지
     last_read_state = ReadingState.query.filter_by(user_id=g.user.id).order_by(desc(ReadingState.last_read_at)).first()
     
-    # --- 그룹화 로직 시작 ---
-    def group_files_by_book(files):
-        groups = {}
-        for file in files:
-            if file.book_id not in groups:
-                groups[file.book_id] = []
-            groups[file.book_id].append(file)
-        
-        grouped_list = []
-        for book_id, file_list in groups.items():
-            file_list.sort(key=lambda f: f.volume_number)
-            cover_file = next((f for f in file_list if f.volume_number == 1), file_list[0])
-            
-            # Make files serializable for template
-            serializable_files = []
-            for f in file_list:
-                # Get reading state for the current user and file
-                reading_state = ReadingState.query.filter_by(user_id=g.user.id, file_id=f.id).first()
-                current_page = reading_state.current_page if reading_state else 0
-
-                serializable_files.append({
-                    "id": f.id, 
-                    "title": f.title or f.book.title, 
-                    "author": f.author or f.book.author, 
-                    "volume_number": f.volume_number, 
-                    "cover_url": f.cover_url or f.book.cover_url,
-                    "current_page": current_page,
-                    "total_pages": f.total_pages
-                })
-
-            grouped_list.append({
-                "book": file_list[0].book, # Representative book
-                "files": serializable_files,
-                "volume_count": len(file_list),
-                "cover_file": cover_file
-            })
-        
-        grouped_list.sort(key=lambda g: g['book'].title)
-        return grouped_list
-
     # 2. 독서 중인 책 목록 (그룹화)
     reading_book_ids_query = db.session.query(File.book_id).join(ReadingState).filter(ReadingState.user_id == g.user.id).order_by(desc(ReadingState.last_read_at)).distinct()
     if last_read_state:
@@ -157,17 +144,18 @@ def index():
     reading_groups = []
     if reading_book_ids:
         reading_files_query = File.query.filter(File.book_id.in_(reading_book_ids)).all()
-        reading_groups = group_files_by_book(reading_files_query)
+        reading_groups = group_files_by_book(reading_files_query, g.user.id)
 
     # 3. 추천 책 목록 (랜덤 5개 그룹화)
-    all_book_ids = db.session.query(Book.id).all()
+    all_book_ids_query = db.session.query(Book.id).all()
+    all_book_ids = [book.id for book in all_book_ids_query]
     if len(all_book_ids) > 5:
-        random_book_ids = random.sample([book.id for book in all_book_ids], 5)
+        random_book_ids = random.sample(all_book_ids, 5)
     else:
-        random_book_ids = [book.id for book in all_book_ids]
+        random_book_ids = all_book_ids
 
     recommended_files_query = File.query.filter(File.book_id.in_(random_book_ids)).all()
-    recommended_groups = group_files_by_book(recommended_files_query)
+    recommended_groups = group_files_by_book(recommended_files_query, g.user.id)
 
     # 4. 모든 책 목록 (그룹화)
     page = request.args.get('page', 1, type=int)
@@ -178,12 +166,12 @@ def index():
         all_books_query = all_books_query.filter(Book.title.ilike(f'%{search_query}%'))
 
     pagination = all_books_query.paginate(page=page, per_page=10, error_out=False)
-    all_book_ids = [item.id for item in pagination.items]
+    paginated_book_ids = [item.id for item in pagination.items]
 
     all_groups = []
-    if all_book_ids:
-        all_files_query = File.query.filter(File.book_id.in_(all_book_ids)).all()
-        all_groups = group_files_by_book(all_files_query)
+    if paginated_book_ids:
+        all_files_query = File.query.filter(File.book_id.in_(paginated_book_ids)).all()
+        all_groups = group_files_by_book(all_files_query, g.user.id)
 
     total_books = pagination.total
 
@@ -264,22 +252,31 @@ def get_next_volume(file_id):
 @app.route('/admin/scan', methods=['GET']) # Should be POST in production with auth
 def scan_files():
     app.logger.info("Starting PDF scan...")
+    batch_size = request.args.get('batch_size', default=30, type=int)
+    if batch_size <= 0:
+        app.logger.warning(f"Invalid batch_size '{batch_size}' received. Falling back to default 30.")
+        batch_size = 30 # 0 또는 음수 값일 경우 기본값으로 복귀
+
     pdf_root = app.config['PDF_ROOT_PATH']
     if not pdf_root or not os.path.exists(pdf_root):
+        app.logger.error("PDF_ROOT_PATH is not configured or does not exist.")
         return jsonify({"error": "PDF_ROOT_PATH is not configured or does not exist."}), 500
 
-    added_files = []
-    existing_files = {f.file_path for f in File.query.all()}
+    added_files_count = 0
+    processed_count = 0
+    # Optimize by fetching only file_path strings, not full objects
+    existing_files = {row[0] for row in db.session.query(File.file_path).all()}
+    all_pdf_paths = [str(p) for p in Path(pdf_root).rglob('*.pdf')]
+    new_pdf_paths = [p for p in all_pdf_paths if p not in existing_files]
 
-    for pdf_path in Path(pdf_root).rglob('*.pdf'):
-        pdf_path_str = str(pdf_path)
-        if pdf_path_str in existing_files:
-            continue
+    app.logger.info(f"Found {len(new_pdf_paths)} new PDF files to process.")
 
-        app.logger.info(f"Processing new file: {pdf_path_str}")
+    for pdf_path_str in new_pdf_paths:
+        processed_count += 1
+        app.logger.info(f"Processing new file ({processed_count}/{len(new_pdf_paths)}): {pdf_path_str}")
         try:
-            # Extract metadata from filename (e.g., "Book Title - 01.pdf")
-            filename = pdf_path.stem
+            # Extract metadata from filename
+            filename = Path(pdf_path_str).stem
             match = re.match(r'(.*?)(?: - |_)(\d+)$', filename)
             if match:
                 title, volume_str = match.groups()
@@ -287,20 +284,19 @@ def scan_files():
             else:
                 title = filename
                 volume = 1
-            
             title = title.strip()
 
             # Get or create book
             book = Book.query.filter_by(title=title).first()
             if not book:
                 app.logger.info(f"New book found: '{title}'. Creating new entry.")
-                book = Book(title=title, author="Unknown") # Default author
+                book = Book(title=title, author="Unknown")
                 db.session.add(book)
                 db.session.flush() # To get book.id
 
-            # Get page count
-            reader = PdfReader(pdf_path_str)
-            total_pages = len(reader.pages)
+            # Use with statement for PdfReader to ensure it's closed
+            with PdfReader(pdf_path_str) as reader:
+                total_pages = len(reader.pages)
 
             # Create file entry
             new_file = File(
@@ -308,31 +304,45 @@ def scan_files():
                 file_path=pdf_path_str,
                 volume_number=volume,
                 total_pages=total_pages,
-                title=book.title,  # Copy from parent book
-                author=book.author # Copy from parent book
+                title=book.title,
+                author=book.author
             )
             db.session.add(new_file)
-            added_files.append(pdf_path_str)
+            added_files_count += 1
+
+            # Commit in batches
+            if added_files_count % batch_size == 0:
+                app.logger.info(f"Committing batch of {batch_size} files to database.")
+                db.session.commit()
+                time.sleep(0.5) # Add a delay to reduce I/O load after commit
 
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Failed to process {pdf_path_str}: {e}")
 
-        # Add a 100ms delay to reduce system load
-        time.sleep(0.1)
+    # Commit any remaining files
+    if added_files_count % batch_size != 0:
+        app.logger.info(f"Committing remaining {added_files_count % batch_size} files.")
+        db.session.commit()
 
-    # Update total_volumes for each book
-    books_to_update = db.session.query(Book.id).join(File).filter(File.file_path.in_(added_files)).distinct()
-    for book_id_tuple in books_to_update:
-        book_id = book_id_tuple[0]
-        count = db.session.query(func.count(File.id)).filter_by(book_id=book_id).scalar()
-        book_to_update = db.session.get(Book, book_id)
-        book_to_update.total_volumes = count
+    # Update total_volumes for all books after all files are added
+    # This is less efficient but safer than trying to update volumes mid-transaction
+    try:
+        app.logger.info("Updating total volume counts for all books.")
+        all_books = Book.query.all()
+        for book in all_books:
+            count = db.session.query(func.count(File.id)).filter_by(book_id=book.id).scalar()
+            if book.total_volumes != count:
+                book.total_volumes = count
+        db.session.commit()
+        app.logger.info("Total volume counts updated.")
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Failed to update total volumes: {e}")
 
-    app.logger.info(f"Committing {len(added_files)} new files and volume updates to the database.")
-    db.session.commit()
-    app.logger.info("Scan complete.")
-    return jsonify({"message": f"Scan complete. Added {len(added_files)} new files.", "files": added_files})
+
+    app.logger.info(f"Scan complete. Added {added_files_count} new files in total.")
+    return jsonify({"message": f"스캔 완료. {added_files_count}개의 새 파일을 추가했습니다.", "files_added": added_files_count})
 
 @app.route('/admin/metadata/update', methods=['POST'])
 def update_metadata():
@@ -485,7 +495,7 @@ def get_books():
     all_groups = []
     if all_book_ids:
         all_files_query = File.query.filter(File.book_id.in_(all_book_ids)).all()
-        all_groups = group_files_by_book(all_files_query)
+        all_groups = group_files_by_book(all_files_query, g.user.id)
     
     return render_template('_book_list.html', all_groups=all_groups, pagination=pagination, search_query=search_query)
 
@@ -494,4 +504,5 @@ def get_books():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     init_db()
+    unlock_database()
     app.run(debug=False, host='0.0.0.0', port=8000, threaded=False)
