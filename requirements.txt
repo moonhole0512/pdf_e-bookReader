@@ -3,3 +3,5 @@ Flask-SQLAlchemy
 pypdf
 python-dotenv
 requests
+gunicorn
+waitress

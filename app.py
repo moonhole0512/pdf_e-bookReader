@@ -15,10 +15,53 @@ import logging
 from config import Config
 from models import db, User, Book, File, ReadingState
 
+# Gunicorn과 같은 운영 서버는 자체 로깅 설정을 사용합니다.
+# 로컬 개발 환경(Waitress) 또는 직접 실행 시에만 기본 로깅을 설정하여
+# Gunicorn 환경에 영향을 주지 않고 콘솔 로그를 활성화합니다.
+if not logging.getLogger().hasHandlers():
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s in %(module)s: %(message)s')
+
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
 db.init_app(app)
+
+def unlock_database():
+    """DB 락을 해제합니다."""
+    with app.app_context():
+        try:
+            # 간단한 쿼리를 실행하여 연결을 확인하고 복구를 트리거합니다.
+            db.session.execute(text('SELECT 1'))
+            db.session.commit()
+        except OperationalError as e:
+            if "database is locked" in str(e).lower():
+                app.logger.warning("데이터베이스가 잠겨 있었습니다. 빈 트랜잭션을 커밋하여 잠금 해제를 시도합니다.")
+                # 롤백 후 커밋하여 잠금을 해제합니다.
+                db.session.rollback()
+                db.session.commit()
+                app.logger.info("데이터베이스 잠금이 해제되었습니다.")
+            else:
+                # 다른 OperationalError는 다시 발생시킵니다.
+                raise
+
+def init_db():
+    with app.app_context():
+        # 설정에서 절대 DB 경로를 가져옵니다.
+        db_path = app.config['DB_PATH']
+        # 해당 경로의 디렉터리를 확인하고 생성합니다.
+        db_dir = os.path.dirname(db_path)
+        os.makedirs(db_dir, exist_ok=True)
+
+        app.logger.info(f"Database path: {db_path}")
+        db.create_all()
+        app.logger.info("Database initialized.")
+
+# 데이터베이스 테이블이 존재하지 않으면 생성합니다.
+# Gunicorn, Waitress 등 어떤 WSGI 서버를 사용하든 앱 임포트 시 실행되도록 합니다.
+with app.app_context():
+    init_db()
+    unlock_database()
 
 @app.before_request
 def load_logged_in_user():
@@ -70,38 +113,6 @@ def group_files_by_book(files, user_id):
     
     grouped_list.sort(key=lambda g: g['book'].title)
     return grouped_list
-
-def init_db():
-    with app.app_context():
-        # 설정에서 절대 DB 경로를 가져옵니다.
-        db_path = app.config['DB_PATH']
-        # 해당 경로의 디렉터리를 확인하고 생성합니다.
-        db_dir = os.path.dirname(db_path)
-        os.makedirs(db_dir, exist_ok=True)
-
-        app.logger.info(f"Database path: {db_path}")
-        db.create_all()
-        app.logger.info("Database initialized.")
-
-
-def unlock_database():
-    """DB 락을 해제합니다."""
-    with app.app_context():
-        try:
-            # 간단한 쿼리를 실행하여 연결을 확인하고 복구를 트리거합니다.
-            db.session.execute(text('SELECT 1'))
-            db.session.commit()
-        except OperationalError as e:
-            if "database is locked" in str(e).lower():
-                app.logger.warning("데이터베이스가 잠겨 있었습니다. 빈 트랜잭션을 커밋하여 잠금 해제를 시도합니다.")
-                # 롤백 후 커밋하여 잠금을 해제합니다.
-                db.session.rollback()
-                db.session.commit()
-                app.logger.info("데이터베이스 잠금이 해제되었습니다.")
-            else:
-                # 다른 OperationalError는 다시 발생시킵니다.
-                raise
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -190,6 +201,20 @@ def reader(file_id):
         return redirect(url_for('login'))
         
     file = File.query.get_or_404(file_id)
+
+    # If total_pages is 0, calculate it now and update the DB.
+    if file.total_pages == 0:
+        try:
+            app.logger.info(f"First read for file_id {file.id}. Calculating total pages.")
+            with PdfReader(file.file_path) as pdf_reader:
+                file.total_pages = len(pdf_reader.pages)
+            db.session.commit()
+            app.logger.info(f"Updated total_pages for file_id {file.id} to {file.total_pages}.")
+        except Exception as e:
+            app.logger.error(f"Failed to read PDF and update page count for {file.file_path}: {e}")
+            # Rollback in case of error during page count update
+            db.session.rollback()
+
     # Ensure the file path is safe and relative to the root
     pdf_path = Path(file.file_path)
     root_path = Path(app.config['PDF_ROOT_PATH'])
@@ -266,14 +291,17 @@ def scan_files():
     processed_count = 0
     # Optimize by fetching only file_path strings, not full objects
     existing_files = {row[0] for row in db.session.query(File.file_path).all()}
-    all_pdf_paths = [str(p) for p in Path(pdf_root).rglob('*.pdf')]
-    new_pdf_paths = [p for p in all_pdf_paths if p not in existing_files]
+    
+    app.logger.info("Starting to scan for new PDF files...")
 
-    app.logger.info(f"Found {len(new_pdf_paths)} new PDF files to process.")
+    # Process files one by one instead of loading all paths into memory
+    for pdf_path in Path(pdf_root).rglob('*.pdf'):
+        pdf_path_str = str(pdf_path)
+        if pdf_path_str in existing_files:
+            continue
 
-    for pdf_path_str in new_pdf_paths:
-        processed_count += 1
-        app.logger.info(f"Processing new file ({processed_count}/{len(new_pdf_paths)}): {pdf_path_str}")
+        processed_count += 1 # Count only new files being processed
+        app.logger.info(f"Processing new file {processed_count}: {pdf_path_str}")
         try:
             # Extract metadata from filename
             filename = Path(pdf_path_str).stem
@@ -294,16 +322,12 @@ def scan_files():
                 db.session.add(book)
                 db.session.flush() # To get book.id
 
-            # Use with statement for PdfReader to ensure it's closed
-            with PdfReader(pdf_path_str) as reader:
-                total_pages = len(reader.pages)
-
-            # Create file entry
+            # Create file entry with total_pages=0. It will be updated on first read.
             new_file = File(
                 book_id=book.id,
                 file_path=pdf_path_str,
                 volume_number=volume,
-                total_pages=total_pages,
+                total_pages=0, # Set default to 0
                 title=book.title,
                 author=book.author
             )
@@ -502,7 +526,6 @@ def get_books():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    init_db()
-    unlock_database()
-    app.run(debug=False, host='0.0.0.0', port=8000, threaded=False)
+    # 이 블록은 'python app.py'로 직접 실행할 때만 사용됩니다.
+    # 로컬 테스트 및 디버깅 목적으로 남겨둡니다.
+    app.run(debug=True, host='0.0.0.0', port=8000)

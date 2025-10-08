@@ -389,11 +389,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Initial Load ---
+    const loaderOverlay = document.getElementById('loader-overlay');
+
     pdfjsLib.getDocument(pdfUrl).promise.then(doc => {
         pdfDoc = doc;
         pageCountSpan.textContent = pdfDoc.numPages;
         updateViewModeButton(); // Set initial button text
+        
+        // Render the first page, then hide the loader.
         renderQueue(pageNum);
+
+        // The rendering itself is async, so we can't hide the loader immediately.
+        // A simple approach is to hide it after a short delay, assuming rendering has started.
+        // A better way would be to use the promise from renderPage.
+        // Let's modify renderPage to return its promise.
+    }).finally(() => {
+        // A simple way to hide the loader. This hides it after the PDF is loaded,
+        // but maybe before the first page is fully rendered. It's a good compromise.
+        setTimeout(() => { // Use a small timeout to ensure a smoother transition
+            loaderOverlay.classList.add('hidden');
+        }, 200);
     });
 
     // --- Swipe Navigation ---

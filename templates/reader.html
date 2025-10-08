@@ -11,6 +11,10 @@
 <body data-file-id="{{ file.id }}" data-pdf-url="{{ pdf_url }}" data-initial-page="{{ state.current_page }}">
 
     <div id="reader-container">
+        <div id="loader-overlay">
+            <div class="loader"></div>
+            <p>로딩 중...</p>
+        </div>
         <div id="pdf-viewer"></div>
     </div>
 
