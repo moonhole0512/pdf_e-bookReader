@@ -27,6 +27,19 @@ app.config.from_object(Config)
 
 db.init_app(app)
 
+# Log DNS server info for debugging
+resolv_conf_path = '/etc/resolv.conf'
+if os.path.exists(resolv_conf_path):
+    try:
+        with open(resolv_conf_path, 'r') as f:
+            dns_info = f.read()
+            app.logger.info(f"DNS config at {resolv_conf_path}:\n---\n{dns_info}---")
+    except Exception as e:
+        app.logger.error(f"Could not read {resolv_conf_path}: {e}")
+else:
+    app.logger.info(f"DNS config file not found at {resolv_conf_path} (This is normal on non-Linux systems).")
+
+
 def unlock_database():
     """DB 락을 해제합니다."""
     with app.app_context():
@@ -387,28 +400,30 @@ def update_metadata():
 def lookup_by_title_volume():
     title = request.args.get('title')
     volume = request.args.get('volume')
+    app.logger.info(f"Received book lookup request for title: '{title}', volume: '{volume}'")
 
     if not title:
+        app.logger.warning("Title is required but was not provided.")
         return jsonify({"error": "Title is required"}), 400
 
-    # Remove spaces from title for more robust search
     processed_title = title.replace(' ', '')
-
     query_parts = [processed_title]
     if volume:
         query_parts.append(volume)
     
     query = f"\"{' '.join(query_parts)}\""
-
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query}&langRestrict=ko"
+    app.logger.info(f"Requesting Google Books API with URL: {url}")
 
     try:
-        url = f"https://www.googleapis.com/books/v1/volumes?q={query}&langRestrict=ko"
-        app.logger.debug(f"Google Books API URL: {url}")
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
+        app.logger.info(f"Google Books API response status: {response.status_code}")
         response.raise_for_status()
         data = response.json()
+        app.logger.debug(f"Google Books API response data: {data}")
 
         if not data.get('items'):
+            app.logger.warning(f"No book found for title: '{title}', volume: '{volume}'")
             return jsonify({"error": "No book found for the given title and volume."}), 404
 
         results = []
@@ -426,29 +441,39 @@ def lookup_by_title_volume():
                 "isbn_10": isbn_10
             })
         
-        # If there's only one result, return it as a single object for backward compatibility
+        app.logger.info(f"Found {len(results)} results for title: '{title}', volume: '{volume}'")
         if len(results) == 1:
             return jsonify(results[0])
 
         return jsonify(results)
 
+    except requests.exceptions.Timeout:
+        app.logger.error(f"Google Books API request timed out for URL: {url}")
+        return jsonify({"error": "API request timed out"}), 504
     except requests.exceptions.RequestException as e:
+        app.logger.error(f"Google Books API request failed for URL: {url}. Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/book/lookup')
 def lookup_book():
     isbn = request.args.get('isbn')
+    app.logger.info(f"Received ISBN lookup request for ISBN: {isbn}")
     if not isbn:
+        app.logger.warning("ISBN is required but was not provided.")
         return jsonify({"error": "ISBN is required"}), 400
 
+    url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+    app.logger.info(f"Requesting Google Books API with URL: {url}")
+
     try:
-        # Google Books API 호출
-        url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
+        app.logger.info(f"Google Books API response status: {response.status_code}")
         response.raise_for_status()
         data = response.json()
+        app.logger.debug(f"Google Books API response data: {data}")
 
         if not data.get('items'):
+            app.logger.warning(f"Book not found for ISBN: {isbn}")
             return jsonify({"error": "Book not found"}), 404
 
         volume_info = data['items'][0]['volumeInfo']
@@ -458,18 +483,19 @@ def lookup_book():
             "thumbnail": volume_info.get('imageLinks', {}).get('thumbnail'),
             "alt_images": []
         }
+        app.logger.info(f"Successfully found book '{result['title']}' for ISBN: {isbn}")
 
-        # 썸네일이 없을 경우 Google 이미지 검색 (주의: 이 방식은 불안정할 수 있습니다)
         if not result['thumbnail']:
-            # Gemini를 이용한 웹 검색으로 대체 이미지 URL을 찾습니다.
-            # 실제 구현에서는 웹 스크래핑 라이브러리나 정식 이미지 검색 API 사용을 권장합니다.
-            # 여기서는 예시로 간단한 검색 결과 링크를 파싱합니다.
-            pass # Google 검색 기능은 현재 Tool에서 직접 호출할 수 없으므로, 이 부분은 비워둡니다.
-                 # 대신 프론트엔드에서 사용자에게 이미지 URL을 직접 입력받는 방식을 고려할 수 있습니다.
+            app.logger.info(f"No thumbnail found for ISBN: {isbn}. Alternate image search logic skipped.")
+            pass
 
         return jsonify(result)
 
+    except requests.exceptions.Timeout:
+        app.logger.error(f"Google Books API request timed out for ISBN: {isbn}. URL: {url}")
+        return jsonify({"error": "API request timed out"}), 504
     except requests.exceptions.RequestException as e:
+        app.logger.error(f"Google Books API request failed for ISBN: {isbn}. URL: {url}. Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/file/update', methods=['POST'])
