@@ -198,6 +198,7 @@ def index():
         all_groups = group_files_by_book(all_files_query, g.user.id)
 
     total_books = pagination.total
+    total_files = db.session.query(func.count(File.id)).scalar()
 
     return render_template('index.html', 
                            last_read_file=last_read_state.file if last_read_state else None,
@@ -206,7 +207,8 @@ def index():
                            all_groups=all_groups,
                            pagination=pagination,
                            search_query=search_query,
-                           total_books=total_books)
+                           total_books=total_books,
+                           total_files=total_files)
 
 @app.route('/reader/<int:file_id>')
 def reader(file_id):
@@ -318,13 +320,24 @@ def scan_files():
         try:
             # Extract metadata from filename
             filename = Path(pdf_path_str).stem
-            match = re.match(r'(.*?)(?: - |_)(\d+)$', filename)
+            
+            # Regex to handle cases like: "Title_01", "Title_01.5", "Title_01_special", "Title 1", "Title01"
+            match = re.match(r'^(.*?)(?:[\s_-]*)(\d+(?:\.\d+)?)(?:_.*)?$', filename)
+            
             if match:
                 title, volume_str = match.groups()
-                volume = int(volume_str)
+                title = title.strip()
+                if not title or title.isdigit():
+                    title = filename
+                    volume = 1
+                else:
+                    # For volumes like "1.5", store the integer part for sorting,
+                    # but the full filename is stored in File.title for display.
+                    volume = int(float(volume_str))
             else:
                 title = filename
                 volume = 1
+            
             title = title.strip()
 
             # Get or create book
@@ -336,12 +349,13 @@ def scan_files():
                 db.session.flush() # To get book.id
 
             # Create file entry with total_pages=0. It will be updated on first read.
+            # The original filename is stored in the file's title field.
             new_file = File(
                 book_id=book.id,
                 file_path=pdf_path_str,
                 volume_number=volume,
                 total_pages=0, # Set default to 0
-                title=book.title,
+                title=filename, # Use original filename for file-specific title
                 author=book.author
             )
             db.session.add(new_file)

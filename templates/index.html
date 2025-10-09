@@ -8,7 +8,7 @@
 </head>
 <body>
     <header>
-        <h1>E-Book 라이브러리 <span class="total-book-count"> (총 {{ total_books }}권)</span></h1>
+        <h1>E-Book 라이브러리 <span class="total-book-count"> (총 {{ total_files }}권)</span></h1>
         <nav>
             <span>{{ g.user.username }}님</span>
             <a href="{{ url_for('logout') }}">로그아웃</a>
@@ -118,6 +118,12 @@
                             <h3>{{ group.book.title }}</h3>
                             <p>{{ group.cover_file.author or group.book.author }}</p>
                         </div>
+                        {% if group.volume_count == 1 %}
+                        <button class="isbn-btn" 
+                                data-file-id="{{ group.files[0].id }}" 
+                                data-book-title="{{ group.book.title }}" 
+                                data-volume-number="{{ group.files[0].volume_number }}">ISBN</button>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>

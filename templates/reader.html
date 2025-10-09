@@ -18,44 +18,77 @@
         <div id="pdf-viewer"></div>
     </div>
 
-    <div class="reader-controls">
-        <button id="prev-page">‹</button>
+    <div id="page-indicator">
         <span id="page-num"></span> / <span id="page-count"></span>
-        <button id="next-page">›</button>
-        
-        <button id="zoom-out">-</button>
-        <button id="zoom-in">+</button>
-
-        <span class="separator">|</span>
-
-        <button id="fit-to-width">너비 맞춤</button>
-        <button id="fit-to-height">높이 맞춤</button>
-
-        <span class="separator">|</span>
-
-        <button id="toggle-view">1</button>
-        <button id="toggle-color-settings">색상</button>
-        <a href="{{ url_for('index') }}" class="back-to-library">목록</a>
     </div>
 
-    <div id="color-settings-panel" class="reader-panel hidden">
-        <div class="setting-item">
-            <label for="brightness-slider">밝기</label>
-            <input type="range" id="brightness-slider" min="50" max="200" value="100">
+    <!-- Floating Action Buttons (Bottom-Right) -->
+    <div id="floating-controls">
+        <button id="settings-btn" class="fab">
+            <div class="icon-gear"></div>
+        </button>
+        <button id="zoom-in" class="fab">+</button>
+        <button id="zoom-out" class="fab">-</button>
+        <a href="{{ url_for('index') }}" id="list-btn" class="fab">
+            <div class="icon-list">
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Settings Panel (Now an Overlay) -->
+    <div id="settings-panel" class="hidden">
+        <div class="settings-header">
+            <h2>설정</h2>
         </div>
-        <div class="setting-item">
-            <label for="contrast-slider">대비</label>
-            <input type="range" id="contrast-slider" min="50" max="200" value="100">
+        <div class="settings-panel-content">
+            <div class="settings-section">
+                <h4>표시</h4>
+                <div class="setting-item">
+                    <label for="toggle-page-indicator">페이지 표시</label>
+                    <input type="checkbox" id="toggle-page-indicator" checked>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>화면 맞춤</h4>
+                <div class="button-group">
+                    <button id="fit-to-width">너비</button>
+                    <button id="fit-to-height">높이</button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>페이지 레이아웃</h4>
+                <div class="button-group">
+                    <button id="view-one-page">1P</button>
+                    <button id="view-two-page-ltr">2P (좌->우)</button>
+                    <button id="view-two-page-rtl">2P (우->좌)</button>
+                </div>
+            </div>
+            <div id="color-settings-section" class="settings-section">
+                <div class="section-title-wrapper">
+                    <h4>색상</h4>
+                    <button id="reset-color-settings">초기화</button>
+                </div>
+                <div class="setting-item">
+                    <label for="brightness-slider">밝기</label>
+                    <input type="range" id="brightness-slider" min="50" max="200" value="100">
+                </div>
+                <div class="setting-item">
+                    <label for="contrast-slider">대비</label>
+                    <input type="range" id="contrast-slider" min="50" max="200" value="100">
+                </div>
+                <div class="setting-item">
+                    <label for="saturation-slider">채도</label>
+                    <input type="range" id="saturation-slider" min="0" max="200" value="100">
+                </div>
+                <div class="setting-item">
+                    <label for="invert-colors-toggle">색상 반전</label>
+                    <input type="checkbox" id="invert-colors-toggle">
+                </div>
+            </div>
         </div>
-        <div class="setting-item">
-            <label for="saturation-slider">채도</label>
-            <input type="range" id="saturation-slider" min="0" max="200" value="100">
-        </div>
-        <div class="setting-item">
-            <label for="invert-colors-toggle">반전</label>
-            <input type="checkbox" id="invert-colors-toggle">
-        </div>
-        <button id="reset-color-settings">초기화</button>
     </div>
 
     <div id="next-volume-popup" class="hidden">
