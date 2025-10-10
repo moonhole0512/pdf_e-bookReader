@@ -169,8 +169,16 @@ document.addEventListener('DOMContentLoaded', () => {
             viewer.appendChild(canvas2);
         }
 
-        renderPage(num, canvas1);
-        if (num + 1 <= pdfDoc.numPages) { renderPage(num + 1, canvas2); }
+        const promises = [renderPage(num, canvas1)];
+        if (num + 1 <= pdfDoc.numPages) {
+            promises.push(renderPage(num + 1, canvas2));
+        }
+
+        Promise.all(promises).then(() => {
+            container.scrollTop = 0;
+            container.scrollLeft = 0;
+        });
+
         pageNum = num;
         updatePageNumUI();
     }
@@ -179,7 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
         viewer.innerHTML = '';
         const canvas = document.createElement('canvas');
         viewer.appendChild(canvas);
-        renderPage(num, canvas);
+        renderPage(num, canvas).then(() => {
+            container.scrollTop = 0;
+            container.scrollLeft = 0;
+        });
         pageNum = num;
         updatePageNumUI();
     }
@@ -273,14 +284,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('zoom-in').addEventListener('click', () => changeScale(0.2));
     document.getElementById('zoom-out').addEventListener('click', () => changeScale(-0.2));
 
-    // Settings Toggle (Mobile vs Desktop)
-    settingsBtn.addEventListener('click', () => {
-        const isMobile = window.innerWidth <= 480;
-        if (isMobile) {
+    // Mobile FAB menu toggle
+    const fabToggleBtn = document.getElementById('fab-toggle-btn');
+    if (fabToggleBtn) {
+        fabToggleBtn.addEventListener('click', (e) => {
+            // This button is only visible on mobile.
+            e.stopPropagation();
             floatingControls.classList.toggle('fabs-expanded');
-        } else {
-            const isHidden = settingsPanel.classList.toggle('hidden');
+        });
+    }
+
+    // Settings panel toggle
+    settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = settingsPanel.classList.toggle('hidden');
+        
+        // On desktop, shift the FABs over when panel opens
+        if (window.innerWidth > 480) {
             floatingControls.classList.toggle('shifted-for-panel', !isHidden);
+        }
+        
+        // If opening panel on mobile, ensure the FAB menu is closed
+        if (window.innerWidth <= 480 && !isHidden) {
+            floatingControls.classList.remove('fabs-expanded');
         }
     });
 
@@ -329,17 +355,18 @@ document.addEventListener('DOMContentLoaded', () => {
         applyColorFilters();
     });
 
-    // Close settings panel when clicking outside
+    // Close popups when clicking outside
     document.addEventListener('click', (e) => {
-        // Check if the settings panel is open
-        if (!settingsPanel.classList.contains('hidden')) {
-            const isClickInsidePanel = settingsPanel.contains(e.target);
-            const isClickOnSettingsBtn = settingsBtn.contains(e.target);
-
-            if (!isClickInsidePanel && !isClickOnSettingsBtn) {
-                settingsPanel.classList.add('hidden');
+        // Close settings panel if click is outside
+        if (!settingsPanel.classList.contains('hidden') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+             settingsPanel.classList.add('hidden');
+             if (window.innerWidth > 480) {
                 floatingControls.classList.remove('shifted-for-panel');
-            }
+             }
+        }
+        // Close mobile FAB menu if click is outside
+        if (floatingControls.classList.contains('fabs-expanded') && !floatingControls.contains(e.target)) {
+            floatingControls.classList.remove('fabs-expanded');
         }
     });
 
@@ -382,8 +409,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const diffX = startX - endX;
         const diffY = startY - endY;
 
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
-            if (diffX > 0) { onNextPage(); } else { onPrevPage(); }
+        // Only consider horizontal swipes
+        if (Math.abs(diffX) <= Math.abs(diffY) || Math.abs(diffX) <= swipeThreshold) {
+            startX = 0; startY = 0;
+            return;
+        }
+
+        const container = document.getElementById('reader-container');
+        const isZoomed = container.scrollWidth > container.clientWidth;
+        
+        const atScrollStart = container.scrollLeft < 1;
+        // Use a more robust check for the end of the scroll, allowing for a small tolerance
+        const atScrollEnd = (container.scrollLeft + container.clientWidth) >= (container.scrollWidth - 1);
+
+        const isSwipeRight = diffX < 0; // Swipe from left to right -> Go to PREVIOUS page
+        const isSwipeLeft = diffX > 0; // Swipe from right to left -> Go to NEXT page
+
+        if (!isZoomed) {
+            // Not zoomed, default behavior: turn page on any horizontal swipe
+            if (isSwipeLeft) { onNextPage(); } else { onPrevPage(); }
+        } else {
+            // Is zoomed, only turn page if at the edge of the scroll
+            if (isSwipeLeft && atScrollEnd) {
+                onNextPage();
+            } else if (isSwipeRight && atScrollStart) {
+                onPrevPage();
+            }
         }
         
         // Reset for the next potential swipe

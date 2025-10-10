@@ -1067,6 +1067,16 @@ header nav a { color: var(--accent-color); text-decoration: none; }
     right: 20px;
     z-index: 100;
     transition: right 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Hide mobile toggle on desktop */
+@media (min-width: 481px) {
+    #fab-toggle-btn {
+        display: none;
+    }
 }
 
 #floating-controls.shifted-for-panel {
@@ -1124,6 +1134,22 @@ header nav a { color: var(--accent-color); text-decoration: none; }
     height: 2px;
     background: white;
     border-radius: 2px;
+}
+
+/* Ellipsis Icon */
+.icon-ellipsis {
+    width: 20px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
+
+.icon-ellipsis div {
+    width: 4px;
+    height: 4px;
+    background: white;
+    border-radius: 50%;
 }
 
 .settings-section {
@@ -1258,48 +1284,59 @@ header nav a { color: var(--accent-color); text-decoration: none; }
 
 /* --- Mobile FAB Menu --- */
 @media (max-width: 480px) {
-    #settings-panel {
-        display: none; /* Hide settings panel on mobile */
+    /* On mobile, show the toggle button, but keep others in the DOM for transitions */
+    #fab-toggle-btn {
+        display: flex;
     }
 
+    /* Undo desktop layout changes and set container size */
     #floating-controls {
+        display: block;
         width: 44px;
         height: 44px;
+        gap: 0;
     }
 
+    /* Position all FABs in the same spot */
     #floating-controls .fab {
         position: absolute;
         bottom: 0;
         right: 0;
     }
 
-    #floating-controls .fab:not(#settings-btn) {
+    /* Hide the 4 functional buttons initially */
+    #floating-controls .fab:not(#fab-toggle-btn) {
         opacity: 0;
         transform: scale(0.5);
         pointer-events: none;
         transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    #floating-controls.fabs-expanded .fab {
+    /* When expanded, show the functional buttons */
+    #floating-controls.fabs-expanded .fab:not(#fab-toggle-btn) {
         opacity: 1;
         pointer-events: auto;
     }
 
-    #floating-controls.fabs-expanded #zoom-in {
+    /* Position the expanded buttons */
+    #floating-controls.fabs-expanded #settings-btn {
         transform: translateY(-52px) scale(1);
     }
-    #floating-controls.fabs-expanded #zoom-out {
+    #floating-controls.fabs-expanded #zoom-in {
         transform: translateY(-104px) scale(1);
     }
-    #floating-controls.fabs-expanded #list-btn {
+    #floating-controls.fabs-expanded #zoom-out {
         transform: translateY(-156px) scale(1);
     }
-    
-    #floating-controls #settings-btn .icon-gear {
-        transform: rotate(0deg);
+    #floating-controls.fabs-expanded #list-btn {
+        transform: translateY(-208px) scale(1);
     }
-
-    #floating-controls.fabs-expanded #settings-btn .icon-gear {
+    
+    /* Animate the toggle button itself to rotate */
+    #fab-toggle-btn {
+        transition: transform 0.3s;
+    }
+    #floating-controls.fabs-expanded #fab-toggle-btn {
         transform: rotate(135deg);
     }
 }
