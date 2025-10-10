@@ -362,11 +362,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Swipe Navigation
     let startX = 0, startY = 0;
     const swipeThreshold = 50;
-    viewer.addEventListener('touchstart', (e) => {
+
+    document.addEventListener('touchstart', (e) => {
+        // Ignore swipes if they start on interactive elements
+        if (e.target.closest('#settings-panel, #floating-controls, button, input, a')) {
+            startX = 0;
+            startY = 0;
+            return;
+        }
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-    });
-    viewer.addEventListener('touchend', (e) => {
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        if (startX === 0) return; // Swipe was ignored
+
         const endX = e.changedTouches[0].clientX;
         const endY = e.changedTouches[0].clientY;
         const diffX = startX - endX;
@@ -375,7 +385,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
             if (diffX > 0) { onNextPage(); } else { onPrevPage(); }
         }
-        startX = 0; startY = 0;
+        
+        // Reset for the next potential swipe
+        startX = 0; 
+        startY = 0;
     });
 
     // --- Initial Load ---
