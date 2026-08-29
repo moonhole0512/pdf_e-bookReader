@@ -68,9 +68,26 @@ def group_files_by_book(files: List[File], user_id: int) -> List[Dict[str, Any]]
         cover_file = next((f for f in file_list if f.volume_number == 1), file_list[0])
 
         serializable_files = []
+        has_reading = False
+        all_completed = True
+        latest_file = None
+        latest_time = None
+
         for f in file_list:
             reading_state = states_by_file.get(f.id)
             current_page = reading_state.current_page if reading_state else 0
+            is_completed = (f.total_pages > 0 and current_page >= f.total_pages * 0.95)
+
+            if reading_state and reading_state.last_read_at:
+                if not latest_time or reading_state.last_read_at > latest_time:
+                    latest_time = reading_state.last_read_at
+                    latest_file = f
+
+            if current_page > 0 and not is_completed:
+                has_reading = True
+                all_completed = False
+            elif current_page == 0:
+                all_completed = False
 
             serializable_files.append({
                 "id": f.id,
@@ -79,15 +96,26 @@ def group_files_by_book(files: List[File], user_id: int) -> List[Dict[str, Any]]
                 "volume_number": f.volume_number,
                 "cover_url": f.cover_url or (f.book.cover_url if f.book else None),
                 "current_page": current_page,
-                "total_pages": f.total_pages
+                "total_pages": f.total_pages,
+                "is_completed": is_completed
             })
+
+        if all_completed and len(file_list) > 0:
+            status = 'completed'
+        elif has_reading or (latest_file and not all_completed):
+            status = 'reading'
+        else:
+            status = 'unread'
 
         main_book = file_list[0].book
         grouped_list.append({
             "book": main_book,
             "files": serializable_files,
             "volume_count": len(file_list),
-            "cover_file": cover_file
+            "cover_file": cover_file,
+            "status": status,
+            "latest_file": latest_file,
+            "last_read_at": latest_time
         })
 
     grouped_list.sort(key=lambda g: (g['book'].title if g['book'] else ""))

@@ -101,11 +101,21 @@
         </div>
     </div>
 
-    <div id="next-volume-popup" class="hidden">
-        <div class="popup-content">
-            <p id="next-volume-message">마지막 페이지입니다. 다음 권으로 이동하시겠습니까?</p>
-            <button id="go-to-next-action">네</button>
-            <button onclick="document.getElementById('next-volume-popup').classList.add('hidden')">아니요</button>
+    <div id="next-volume-popup" class="modal-overlay hidden">
+        <div class="modal-content completion-sheet-content">
+            <div class="completion-celebration">
+                <div class="completion-trophy">🎉</div>
+                <h2>완독을 축하합니다!</h2>
+                <p class="completion-book-name">{{ file.book.title }} - 제{{ file.volume_number }}권</p>
+            </div>
+            <div class="completion-next-prompt">
+                <p id="next-volume-message">시리즈의 다음 권이 준비되어 있습니다. 지금 바로 이어서 읽으시겠습니까?</p>
+            </div>
+            <div class="completion-actions">
+                <button id="go-to-next-action" class="completion-btn primary-btn">▶ 다음 권 이어서 읽기</button>
+                <a href="{{ url_for('library.index') }}" class="completion-btn secondary-btn">서재로 돌아가기</a>
+                <button class="completion-btn text-btn" onclick="document.getElementById('next-volume-popup').classList.add('hidden')">현재 페이지 머무르기</button>
+            </div>
         </div>
     </div>
 

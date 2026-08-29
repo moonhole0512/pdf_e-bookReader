@@ -63,9 +63,18 @@ def index():
     total_books = pagination.total
     total_files = db.session.query(func.count(File.id)).scalar() or 0
 
+    last_file = last_read_state.file if last_read_state else None
+    next_volume_file = None
+    if last_file:
+        next_volume_file = File.query.filter_by(
+            book_id=last_file.book_id,
+            volume_number=last_file.volume_number + 1
+        ).first()
+
     return render_template(
         'index.html',
-        last_read_file=last_read_state.file if last_read_state else None,
+        last_read_file=last_file,
+        next_volume_file=next_volume_file,
         reading_groups=reading_groups,
         recommended_groups=recommended_groups,
         all_groups=all_groups,

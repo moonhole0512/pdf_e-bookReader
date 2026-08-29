@@ -2,6 +2,7 @@
     {% for group in all_groups %}
         <div class="book-card" 
              data-is-group="true" 
+             data-status="{{ group.status }}"
              data-volume-count="{{ group.volume_count }}" 
              data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
              data-volumes='{{ group.files | tojson }}'
@@ -11,6 +12,12 @@
             
             {% if group.volume_count > 1 %}
             <div class="volume-badge">{{ group.volume_count }}권</div>
+            {% endif %}
+
+            {% if group.status == 'completed' %}
+            <div class="completed-badge">완독 🏆</div>
+            {% elif group.status == 'reading' %}
+            <div class="reading-badge">읽는 중</div>
             {% endif %}
 
             <div class="book-info">

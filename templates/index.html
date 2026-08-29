@@ -7,61 +7,132 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>E-Book 라이브러리 <span class="total-book-count"> (총 {{ total_files }}권)</span></h1>
-        <nav>
-            <span>{{ g.user.username }}님</span>
-            <a href="{{ url_for('auth.logout') }}">로그아웃</a>
-            <div class="scan-container">
-                <button id="auto-enrich-btn" class="scan-btn enrich-btn" title="온라인에서 표지와 저자 정보를 자동으로 검색하여 채웁니다">정보 자동 검색</button>
-                <button id="scan-pdf-btn" class="scan-btn">PDF 스캔</button>
-                <button id="scan-settings-btn" class="settings-btn">
-                    <div class="settings-icon-sliders">
-                        <div class="slider-bar"></div>
-                        <div class="slider-bar"></div>
-                        <div class="slider-bar"></div>
-                    </div>
-                </button>
-            </div>
+    <header class="app-header">
+        <div class="header-brand">
+            <h1>E-Book 라이브러리 <span class="total-book-count">({{ total_files }})</span></h1>
+        </div>
+        <nav class="header-nav">
+            <span class="user-greeting">{{ g.user.username }}님</span>
+            <button id="app-settings-btn" class="icon-btn" title="서재 설정 및 관리">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
         </nav>
     </header>
 
     <main class="library-container">
+        <!-- Segmented Control Navigation -->
+        <div class="segmented-control-container">
+            <div class="segmented-control" role="tablist">
+                <button class="segment-btn active" data-tab="reading">📖 지금 읽는 중</button>
+                <button class="segment-btn" data-tab="unread">🎲 미독 서재</button>
+                <button class="segment-btn" data-tab="completed">🏆 완독 서재</button>
+                <button class="segment-btn" data-tab="all">📚 전체 도서</button>
+            </div>
+        </div>
+
+        <!-- Search Bar with Instant Autocomplete -->
+        <div class="library-search-bar">
+            <form action="{{ url_for('library.index') }}" method="GET" class="search-form">
+                <input type="text" name="search_query" placeholder="책 제목 또는 저자 검색..." value="{{ search_query or '' }}" autocomplete="off">
+                <button type="submit">검색</button>
+                <div id="autocomplete-results" class="autocomplete-results"></div>
+            </form>
+        </div>
+
+        <!-- Unread Discovery Banner (Shuffle Picker) -->
+        <div id="unread-discovery-banner" class="discovery-banner" data-tab-content="unread" style="display: none;">
+            <div class="discovery-text">
+                <h3>🎲 아직 펼치지 않은 보물</h3>
+                <p>어떤 책을 읽을지 고민되시나요? 서재의 미독 도서 중에서 추천해 드려요.</p>
+            </div>
+            <button id="shuffle-pick-btn" class="shuffle-action-btn">🎲 오늘 뭐 읽지? 랜덤 추천</button>
+        </div>
+
         {% if last_read_file %}
-        <section class="bookshelf">
-            <h2>이어 읽기</h2>
-            <div class="book-card-wrapper">
+        <section class="bookshelf continue-reading-section" data-tab-content="reading">
+            <div class="bookshelf-header">
+                <h2>지금 읽는 책 (이어 읽기)</h2>
+            </div>
+            <div class="hero-continue-card">
                 {% set state = last_read_file.reading_state %}
-                <div class="book-card last-read">
-                    <a href="{{ url_for('reader.reader_view', file_id=last_read_file.id) }}">
-                        <img src="{{ last_read_file.cover_url or last_read_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ last_read_file.title or last_read_file.book.title }}">
-                        <div class="book-info">
-                            <h3>{{ last_read_file.title or last_read_file.book.title }}</h3>
-                            <p>{{ last_read_file.author or last_read_file.book.author }}</p>
-                            <p>Vol. {{ last_read_file.volume_number }}</p>
+                {% set pct = ((state.current_page / last_read_file.total_pages) * 100) | round if state and last_read_file.total_pages > 0 else 0 %}
+                <div class="hero-cover-container">
+                    <img src="{{ last_read_file.cover_url or last_read_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ last_read_file.title or last_read_file.book.title }}">
+                </div>
+                <div class="hero-details">
+                    <div class="hero-meta">
+                        <span class="series-badge">제 {{ last_read_file.volume_number }} 권</span>
+                        <h3>{{ last_read_file.title or last_read_file.book.title }}</h3>
+                        <p class="hero-author">{{ last_read_file.author or last_read_file.book.author }}</p>
+                    </div>
+
+                    {% if state and last_read_file.total_pages > 0 %}
+                    <div class="hero-progress-block">
+                        <div class="hero-progress-label">
+                            <span>독서 진행률</span>
+                            <strong>{{ pct }}% ({{ state.current_page }} / {{ last_read_file.total_pages }}p)</strong>
                         </div>
-                        {% if state and last_read_file.total_pages > 0 %}
                         <div class="progress-bar-container">
-                            <div class="progress-bar" style="width: {{ (state.current_page / last_read_file.total_pages) * 100 }}%;"></div>
+                            <div class="progress-bar" style="width: {{ pct }}%;"></div>
                         </div>
-                        <span class="progress-text">{{ state.current_page }} / {{ last_read_file.total_pages }}</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="hero-action-buttons">
+                        <a href="{{ url_for('reader.reader_view', file_id=last_read_file.id) }}" class="hero-btn primary-btn">
+                            ▶ 이어서 읽기
+                        </a>
+                        {% if next_volume_file %}
+                        <a href="{{ url_for('reader.reader_view', file_id=next_volume_file.id) }}" class="hero-btn next-vol-btn" title="다음 권으로 바로 이동">
+                            다음 권: 제{{ next_volume_file.volume_number }}권 바로가기 ⏭️
+                        </a>
                         {% endif %}
-                    </a>
-                    <button class="isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}">ISBN</button>
+                        <button class="isbn-btn hero-isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}">정보 수정</button>
+                    </div>
                 </div>
             </div>
         </section>
         {% endif %}
 
-        {% if all_groups %}
-        <section class="bookshelf">
+        {% if reading_groups %}
+        <section class="bookshelf" data-tab-content="reading">
             <div class="bookshelf-header">
-                <h2>모든 책</h2>
-                <form action="{{ url_for('library.index') }}" method="GET" class="search-form">
-                    <input type="text" name="search_query" placeholder="책 제목 검색..." value="{{ search_query or '' }}" autocomplete="off">
-                    <button type="submit">검색</button>
-                    <div id="autocomplete-results" class="autocomplete-results"></div>
-                </form>
+                <h2>독서 중인 책 <span class="badge-count">{{ reading_groups | length }}</span></h2>
+            </div>
+            <div class="book-grid">
+                {% for group in reading_groups %}
+                    <div class="book-card" 
+                         data-is-group="true" 
+                         data-status="reading"
+                         data-volume-count="{{ group.volume_count }}" 
+                         data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
+                         data-volumes='{{ group.files | tojson }}'
+                         data-series-title="{{ group.book.title }}">
+                        
+                        <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ group.book.title }}">
+                        
+                        {% if group.volume_count > 1 %}
+                        <div class="volume-badge">{{ group.volume_count }}권</div>
+                        {% endif %}
+                        <div class="reading-badge">읽는 중</div>
+
+                        <div class="book-info">
+                            <h3>{{ group.book.title }}</h3>
+                            <p>{{ group.cover_file.author or group.book.author }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if all_groups %}
+        <section class="bookshelf all-books-shelf" data-tab-content="all">
+            <div class="bookshelf-header">
+                <h2 id="shelf-section-title">전체 도서</h2>
             </div>
             <div id="all-books-section-content">
                 {% include '_book_list.html' %}
@@ -69,41 +140,16 @@
         </section>
         {% endif %}
 
-        {% if reading_groups %}
-        <section class="bookshelf">
-            <h2>독서 중인 책</h2>
-            <div class="book-grid">
-                {% for group in reading_groups %}
-                    <div class="book-card" 
-                         data-is-group="true" 
-                         data-volume-count="{{ group.volume_count }}" 
-                         data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
-                         data-volumes='{{ group.files | tojson }}'
-                         data-series-title="{{ group.book.title }}">
-                        
-                        <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ group.book.title }}">
-                        
-                        {% if group.volume_count > 1 %}
-                        <div class="volume-badge">{{ group.volume_count }}권</div>
-                        {% endif %}
-
-                        <div class="book-info">
-                            <h3>{{ group.book.title }}</h3>
-                            <p>{{ group.cover_file.author or group.book.author }}</p>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        </section>
-        {% endif %}
-
         {% if recommended_groups %}
-        <section class="bookshelf">
-            <h2>추천 책</h2>
+        <section class="bookshelf" data-tab-content="reading">
+            <div class="bookshelf-header">
+                <h2>추천 도서</h2>
+            </div>
             <div class="book-grid">
                 {% for group in recommended_groups %}
                     <div class="book-card" 
                          data-is-group="true" 
+                         data-status="{{ group.status }}"
                          data-volume-count="{{ group.volume_count }}" 
                          data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
                          data-volumes='{{ group.files | tojson }}'
@@ -119,18 +165,51 @@
                             <h3>{{ group.book.title }}</h3>
                             <p>{{ group.cover_file.author or group.book.author }}</p>
                         </div>
-                        {% if group.volume_count == 1 %}
-                        <button class="isbn-btn" 
-                                data-file-id="{{ group.files[0].id }}" 
-                                data-book-title="{{ group.book.title }}" 
-                                data-volume-number="{{ group.files[0].volume_number }}">ISBN</button>
-                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
         </section>
         {% endif %}
     </main>
+
+    <!-- App Settings Modal (Clean Header Management Hub) -->
+    <div id="app-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content settings-modal-content">
+            <div class="settings-modal-header">
+                <h2>서재 설정 및 관리</h2>
+                <button id="settings-modal-close-x" class="close-x-btn">&times;</button>
+            </div>
+            <div class="settings-options-list">
+                <div class="settings-option-item">
+                    <div class="option-desc">
+                        <strong>온라인 도서 정보 자동 취득</strong>
+                        <p>알라딘 및 Google Books에서 고화질 표지와 정확한 저자명을 자동으로 검색합니다.</p>
+                    </div>
+                    <button id="auto-enrich-btn" class="action-btn enrich-btn">정보 자동 검색</button>
+                </div>
+                <div class="settings-option-item">
+                    <div class="option-desc">
+                        <strong>PDF 라이브러리 스캔</strong>
+                        <p>저장 폴더의 신규 PDF 파일을 검색하여 서재에 등록하고 동기화합니다.</p>
+                    </div>
+                    <div class="scan-action-group">
+                        <button id="scan-pdf-btn" class="action-btn scan-btn">PDF 스캔</button>
+                        <button id="scan-settings-btn" class="action-btn sub-btn" title="스캔 옵션">옵션</button>
+                    </div>
+                </div>
+                <div class="settings-option-item">
+                    <div class="option-desc">
+                        <strong>사용자 계정</strong>
+                        <p>{{ g.user.username }} 계정으로 로그인 중입니다.</p>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" class="action-btn danger-btn">로그아웃</a>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="settings-modal-close-btn">닫기</button>
+            </div>
+        </div>
+    </div>
 
     <div id="isbn-modal" class="modal-overlay hidden">
         <div class="modal-content">
@@ -175,6 +254,52 @@
             </div>
         </div>
     </div>
+
+    <!-- Shuffle Recommendation Modal -->
+    <div id="shuffle-recommend-modal" class="modal-overlay hidden">
+        <div class="modal-content shuffle-modal-content">
+            <div class="shuffle-modal-header">
+                <span class="shuffle-badge">🎲 오늘의 추천 도서</span>
+                <button id="shuffle-modal-close-x" class="close-x-btn">&times;</button>
+            </div>
+            <div class="shuffle-card-preview">
+                <img id="shuffle-cover" src="" alt="추천 도서 표지">
+                <div class="shuffle-info">
+                    <h3 id="shuffle-title">도서명</h3>
+                    <p id="shuffle-author">저자명</p>
+                    <span id="shuffle-volume-count" class="series-badge">전 1권</span>
+                </div>
+            </div>
+            <div class="completion-actions">
+                <a id="shuffle-read-now-btn" href="#" class="completion-btn primary-btn">📖 바로 첫 페이지 펼치기</a>
+                <button id="shuffle-again-btn" class="completion-btn secondary-btn">🔄 다른 책 뽑기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Floating Bottom Tab Bar (Thumb Zone) -->
+    <nav class="mobile-bottom-tab-bar">
+        <button class="mobile-tab-btn active" data-tab="reading">
+            <span class="tab-icon">📖</span>
+            <span class="tab-label">지금 읽기</span>
+        </button>
+        <button class="mobile-tab-btn" data-tab="unread">
+            <span class="tab-icon">🎲</span>
+            <span class="tab-label">미독</span>
+        </button>
+        <button class="mobile-tab-btn" data-tab="completed">
+            <span class="tab-icon">🏆</span>
+            <span class="tab-label">완독</span>
+        </button>
+        <button class="mobile-tab-btn" data-tab="all">
+            <span class="tab-icon">📚</span>
+            <span class="tab-label">전체</span>
+        </button>
+        <button id="mobile-settings-btn" class="mobile-tab-btn">
+            <span class="tab-icon">⚙️</span>
+            <span class="tab-label">설정</span>
+        </button>
+    </nav>
 
     <script src="{{ url_for('static', filename='js/library.js') }}"></script>
 </body>

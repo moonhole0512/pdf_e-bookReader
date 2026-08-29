@@ -95,7 +95,11 @@ def get_next_volume(file_id):
     ).first()
 
     if next_volume:
-        return jsonify({'next_file_id': next_volume.id})
+        return jsonify({
+            'next_file_id': next_volume.id,
+            'next_volume_number': next_volume.volume_number,
+            'next_title': next_volume.title or (next_volume.book.title if next_volume.book else "")
+        })
     return jsonify({'next_file_id': None}), 200
 
 @reader_bp.route('/api/file/update', methods=['POST'])

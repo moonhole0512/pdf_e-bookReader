@@ -262,15 +262,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.next_file_id) {
-                nextVolumeMessage.textContent = '마지막 페이지입니다. 다음 권으로 이동하시겠습니까?';
+                const volTxt = data.next_volume_number ? `제${data.next_volume_number}권` : '다음 권';
+                nextVolumeMessage.textContent = `시리즈의 다음 권(${volTxt})이 준비되어 있습니다. 지금 바로 이어서 읽으시겠습니까?`;
+                goToNextActionButton.textContent = `▶ ${volTxt} 이어서 읽기`;
+                goToNextActionButton.style.display = 'inline-flex';
                 goToNextActionButton.onclick = () => {
                     window.location.href = `/reader/${data.next_file_id}`;
                 };
             } else {
-                nextVolumeMessage.textContent = '마지막 페이지입니다. 목록으로 돌아가시겠습니까?';
-                goToNextActionButton.onclick = () => {
-                    window.location.href = '/';
-                };
+                nextVolumeMessage.textContent = '이 책의 모든 권을 완독하셨거나 단행본의 마지막 페이지입니다. 수고하셨습니다! 👏';
+                goToNextActionButton.style.display = 'none';
             }
             nextVolumePopup.classList.remove('hidden');
         } catch (error) {
