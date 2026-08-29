@@ -15,7 +15,7 @@
             <h2>기존 사용자</h2>
             <div class="user-list">
                 {% for user in users %}
-                <form action="{{ url_for('login') }}" method="POST" class="user-item">
+                <form action="{{ url_for('auth.login') }}" method="POST" class="user-item">
                     <input type="hidden" name="username" value="{{ user.username }}">
                     <button type="submit" class="user-button">
                         <div class="user-icon"></div>

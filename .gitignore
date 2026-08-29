@@ -1,0 +1,24 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local configuration & secrets
+.env
+instance/*.db
+instance/*.db.bak
+instance/.secret_key
+
+# Debug and test scratch directories (Project rule)
+_testcode/debug/
+_testcode/temp/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

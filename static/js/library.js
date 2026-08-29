@@ -383,38 +383,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (scanPdfBtn) {
+        let scanPollInterval = null;
+
+        const pollScanStatus = () => {
+            scanPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/admin/scan/status');
+                    if (!res.ok) return;
+                    const status = await res.json();
+
+                    if (status.state === 'running') {
+                        scanPdfBtn.textContent = `스캔 중 (${status.total_scanned}개)`;
+                    } else if (status.state === 'completed') {
+                        clearInterval(scanPollInterval);
+                        scanPollInterval = null;
+                        showToast(status.message || '스캔 완료!');
+                        scanPdfBtn.textContent = 'PDF 스캔';
+                        scanPdfBtn.disabled = false;
+                        scanSettingsBtn.disabled = false;
+                        // Reload bookshelf to display newly added books
+                        setTimeout(() => location.reload(), 1200);
+                    } else if (status.state === 'error') {
+                        clearInterval(scanPollInterval);
+                        scanPollInterval = null;
+                        showToast(status.message || '스캔 실패', true);
+                        scanPdfBtn.textContent = 'PDF 스캔';
+                        scanPdfBtn.disabled = false;
+                        scanSettingsBtn.disabled = false;
+                    }
+                } catch (e) {
+                    console.error('Error polling scan status:', e);
+                }
+            }, 1000);
+        };
+
         scanPdfBtn.addEventListener('click', async function(event) {
             event.preventDefault();
             
-            const originalText = scanPdfBtn.textContent;
-            scanPdfBtn.textContent = '스캔중...';
+            scanPdfBtn.textContent = '스캔 시작...';
             scanPdfBtn.disabled = true;
             scanSettingsBtn.disabled = true;
 
             const batchSize = localStorage.getItem('scanBatchSize') || 30;
 
             try {
-                const response = await fetch(`/admin/scan?batch_size=${batchSize}`, { // Pass batch_size as query param
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                const response = await fetch(`/admin/scan?batch_size=${batchSize}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 
                 const data = await response.json();
 
-                if (response.ok) {
-                    showToast(data.message || '스캔 완료!');
+                if (response.ok || response.status === 409) {
+                    showToast(data.message || '스캔이 시작되었습니다.');
+                    pollScanStatus();
                 } else {
-                    showToast('스캔 실패: ' + (data.error || response.statusText), true);
-                    scanPdfBtn.textContent = originalText;
+                    showToast('스캔 요청 실패: ' + (data.error || response.statusText), true);
+                    scanPdfBtn.textContent = 'PDF 스캔';
                     scanPdfBtn.disabled = false;
                     scanSettingsBtn.disabled = false;
                 }
             } catch (error) {
-                console.error('Error during PDF scan:', error);
-                showToast('스캔 중 오류가 발생했습니다.', true);
-                scanPdfBtn.textContent = originalText;
+                console.error('Error starting PDF scan:', error);
+                showToast('스캔 요청 중 오류가 발생했습니다.', true);
+                scanPdfBtn.textContent = 'PDF 스캔';
                 scanPdfBtn.disabled = false;
                 scanSettingsBtn.disabled = false;
             }

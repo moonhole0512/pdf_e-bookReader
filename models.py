@@ -1,7 +1,7 @@
-
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint, func
+from sqlalchemy.orm import relationship
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
@@ -9,7 +9,22 @@ class User(db.Model):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False)
-    password_hash = Column(String(120), nullable=True) 
+    password_hash = Column(String(255), nullable=True)
+    is_admin = Column(Boolean, default=False, nullable=False)
+
+    reading_states = relationship('ReadingState', back_populates='user', cascade="all, delete-orphan")
+
+    def set_password(self, password):
+        if password:
+            self.password_hash = generate_password_hash(password)
+        else:
+            self.password_hash = None
+
+    def check_password(self, password):
+        if not self.password_hash:
+            # If no password set, allow empty or any password (backward compatibility)
+            return True
+        return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -17,12 +32,12 @@ class User(db.Model):
 class Book(db.Model):
     __tablename__ = 'book'
     id = Column(Integer, primary_key=True)
-    title = Column(String(255), nullable=False)
-    author = Column(String(255))
+    title = Column(String(255), nullable=False, index=True)
+    author = Column(String(255), nullable=True)
     total_volumes = Column(Integer, default=1)
-    cover_url = Column(String(255))
+    cover_url = Column(String(500), nullable=True)
     
-    files = relationship('File', back_populates='book', cascade="all, delete-orphan")
+    files = relationship('File', back_populates='book', cascade="all, delete-orphan", order_by="File.volume_number")
 
     def __repr__(self):
         return f'<Book {self.title}>'
@@ -30,18 +45,26 @@ class Book(db.Model):
 class File(db.Model):
     __tablename__ = 'file'
     id = Column(Integer, primary_key=True)
-    book_id = Column(Integer, ForeignKey('book.id'), nullable=False)
-    file_path = Column(String(1024), unique=True, nullable=False)
+    book_id = Column(Integer, ForeignKey('book.id'), nullable=False, index=True)
+    file_path = Column(String(1024), unique=True, nullable=False, index=True)
     volume_number = Column(Integer, default=1)
-    total_pages = Column(Integer, nullable=False)
+    total_pages = Column(Integer, default=0, nullable=False)
 
     # File-specific metadata
     title = Column(String(255), nullable=True)
     author = Column(String(255), nullable=True)
-    cover_url = Column(String(255), nullable=True)
+    cover_url = Column(String(500), nullable=True)
 
     book = relationship('Book', back_populates='files')
-    reading_state = relationship('ReadingState', uselist=False, back_populates='file', cascade="all, delete-orphan")
+    reading_states = relationship('ReadingState', back_populates='file', cascade="all, delete-orphan")
+
+    @property
+    def reading_state(self):
+        """Backward compatibility helper for templates that access file.reading_state."""
+        from flask import g
+        if hasattr(g, 'user') and g.user:
+            return next((s for s in self.reading_states if s.user_id == g.user.id), None)
+        return self.reading_states[0] if self.reading_states else None
 
     def __repr__(self):
         return f'<File {self.file_path}>'
@@ -49,13 +72,17 @@ class File(db.Model):
 class ReadingState(db.Model):
     __tablename__ = 'reading_state'
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    file_id = Column(Integer, ForeignKey('file.id'), nullable=False, unique=True)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    file_id = Column(Integer, ForeignKey('file.id'), nullable=False, index=True)
     current_page = Column(Integer, default=1)
     last_read_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
-    user = relationship('User')
-    file = relationship('File', back_populates='reading_state')
+    __table_args__ = (
+        UniqueConstraint('user_id', 'file_id', name='uq_user_file_reading_state'),
+    )
+
+    user = relationship('User', back_populates='reading_states')
+    file = relationship('File', back_populates='reading_states')
 
     def __repr__(self):
         return f'<ReadingState User:{self.user_id} File:{self.file_id} Page:{self.current_page}>'

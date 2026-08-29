@@ -11,7 +11,7 @@
         <h1>E-Book 라이브러리 <span class="total-book-count"> (총 {{ total_files }}권)</span></h1>
         <nav>
             <span>{{ g.user.username }}님</span>
-            <a href="{{ url_for('logout') }}">로그아웃</a>
+            <a href="{{ url_for('auth.logout') }}">로그아웃</a>
             <div class="scan-container">
                 <button id="scan-pdf-btn" class="scan-btn">PDF 스캔</button>
                 <button id="scan-settings-btn" class="settings-btn">
@@ -32,7 +32,7 @@
             <div class="book-card-wrapper">
                 {% set state = last_read_file.reading_state %}
                 <div class="book-card last-read">
-                    <a href="{{ url_for('reader', file_id=last_read_file.id) }}">
+                    <a href="{{ url_for('reader.reader_view', file_id=last_read_file.id) }}">
                         <img src="{{ last_read_file.cover_url or last_read_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ last_read_file.title or last_read_file.book.title }}">
                         <div class="book-info">
                             <h3>{{ last_read_file.title or last_read_file.book.title }}</h3>
@@ -56,7 +56,7 @@
         <section class="bookshelf">
             <div class="bookshelf-header">
                 <h2>모든 책</h2>
-                <form action="{{ url_for('index') }}" method="GET" class="search-form">
+                <form action="{{ url_for('library.index') }}" method="GET" class="search-form">
                     <input type="text" name="search_query" placeholder="책 제목 검색..." value="{{ search_query or '' }}" autocomplete="off">
                     <button type="submit">검색</button>
                     <div id="autocomplete-results" class="autocomplete-results"></div>
@@ -76,7 +76,7 @@
                     <div class="book-card" 
                          data-is-group="true" 
                          data-volume-count="{{ group.volume_count }}" 
-                         data-single-url="{{ url_for('reader', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
+                         data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
                          data-volumes='{{ group.files | tojson }}'
                          data-series-title="{{ group.book.title }}">
                         
@@ -104,7 +104,7 @@
                     <div class="book-card" 
                          data-is-group="true" 
                          data-volume-count="{{ group.volume_count }}" 
-                         data-single-url="{{ url_for('reader', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
+                         data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
                          data-volumes='{{ group.files | tojson }}'
                          data-series-title="{{ group.book.title }}">
                         
