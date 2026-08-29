@@ -15,32 +15,28 @@ def book_lookup_by_title_volume():
     if not title:
         return jsonify({"error": "Title is required"}), 400
 
-    # 1. Try high-precision Aladin enrichment first
-    try:
-        from services.book_enricher import enrich_book_info
-        vol_num = int(float(volume)) if volume and volume.replace('.', '', 1).isdigit() else 1
-        enriched = enrich_book_info(title, volume=vol_num)
-        if enriched and enriched.get('cover_url'):
-            return jsonify({
-                "title": enriched['title'],
-                "author": enriched['author'],
-                "thumbnail": enriched.get('cover_url'),
-                "isbn_13": enriched.get('isbn'),
-                "isbn_10": None
-            })
-    except Exception as e:
-        logger.debug(f"Aladin enrichment check error: {e}")
+    vol_num = int(float(volume)) if volume and volume.replace('.', '', 1).isdigit() else None
 
-    # 2. Fallback to Google Books API
+    # Multi-source candidate search (Aladin + Google Books)
+    try:
+        from services.book_enricher import search_book_candidates
+        candidates = search_book_candidates(title, volume=vol_num)
+        if candidates:
+            if len(candidates) == 1:
+                return jsonify(candidates[0])
+            return jsonify(candidates)
+    except Exception as e:
+        logger.debug(f"Candidate search error: {e}")
+
+    # Fallback to Google Books API
     resp = lookup_google_books_by_title_volume(title, volume)
     if resp.get("status") != 200:
         return jsonify({"error": resp.get("error", "Error")}), resp.get("status", 500)
 
     results = resp.get("results", [])
     if not results:
-        return jsonify({"error": "No book found for the given title and volume."}), 404
+        return jsonify({"error": "도서 정보를 찾을 수 없습니다."}), 404
 
-    # Keep exact legacy response contract for library.js
     if len(results) == 1:
         return jsonify(results[0])
     return jsonify(results)
@@ -52,8 +48,18 @@ def book_lookup():
     if not isbn:
         return jsonify({"error": "ISBN is required"}), 400
 
+    # 1. Search Google Books
     resp = lookup_google_books_by_isbn(isbn)
-    if resp.get("status") != 200:
-        return jsonify({"error": resp.get("error", "Error")}), resp.get("status", 500)
+    if resp.get("status") == 200 and resp.get("result"):
+        return jsonify(resp.get("result"))
 
-    return jsonify(resp.get("result"))
+    # 2. Try Aladin by ISBN
+    try:
+        from services.book_enricher import search_book_candidates
+        cands = search_book_candidates(isbn)
+        if cands:
+            return jsonify(cands[0])
+    except Exception as e:
+        logger.debug(f"Aladin ISBN lookup failed: {e}")
+
+    return jsonify({"error": "도서 정보를 찾을 수 없습니다."}), 404

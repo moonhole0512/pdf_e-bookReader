@@ -146,7 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
             bookCard.innerHTML = `
                 <img src="${cover}" alt="${book.title}">
                 <div class="book-info-small">
-                    <p>${book.title}</p>
+                    <p title="${book.title}">${book.title}</p>
+                    <span title="${book.author || ''}">${book.author || '저자 미상'}</span>
                 </div>
             `;
             selectionGrid.appendChild(bookCard);
@@ -166,16 +167,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add new selection
             selectedCard.classList.add('selected');
 
-            // Populate hidden fields and enable register button
-            const bookData = selectedCard.dataset;
-            displaySingleResult({
-                title: bookData.title,
-                author: bookData.author,
-                thumbnail: bookData.coverUrl,
-                isbn_13: bookData.isbn13,
-                isbn_10: bookData.isbn10
-            });
-            registerBtn.disabled = false;
+            // Populate preview with the selected candidate
+            const selectedBook = {
+                title: selectedCard.dataset.title,
+                author: selectedCard.dataset.author,
+                thumbnail: selectedCard.dataset.coverUrl,
+                isbn_13: selectedCard.dataset.isbn13,
+                isbn_10: selectedCard.dataset.isbn10
+            };
+
+            selectedCoverUrl = selectedBook.thumbnail;
+            registerBtn.disabled = !selectedCoverUrl;
         });
     };
 
@@ -231,22 +233,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const searchIsbn = async () => {
-        const isbn = isbnInput.value.trim();
-        if (!isbn) return;
+        const query = isbnInput.value.trim();
+        if (!query) return;
 
         resultsDiv.innerHTML = '<div class="loader"></div><p style="text-align: center;">책 정보 검색 중...</p>';
         registerBtn.disabled = true;
 
         try {
-            const response = await fetch(`/api/book/lookup?isbn=${isbn}`);
+            const isIsbn = /^[\d-]+[xX]?$/.test(query.replace(/\s+/g, '')) && query.replace(/[-\s]/g, '').length >= 9;
+            const endpoint = isIsbn
+                ? `/api/book/lookup?isbn=${encodeURIComponent(query)}`
+                : `/api/book/lookup_by_title_volume?title=${encodeURIComponent(query)}`;
+
+            const response = await fetch(endpoint);
             const data = await response.json();
 
             if (!response.ok) {
-                resultsDiv.innerHTML = `<p class="error">오류: ${data.error}</p>`;
+                resultsDiv.innerHTML = `<p class="error">오류: ${data.error || '도서 정보를 찾을 수 없습니다.'}</p>`;
                 return;
             }
 
-            displaySingleResult(data);
+            if (Array.isArray(data)) {
+                displayMultipleResults(data);
+            } else {
+                displaySingleResult(data);
+            }
 
         } catch (error) {
             resultsDiv.innerHTML = `<p class="error">네트워크 오류가 발생했습니다.</p>`;

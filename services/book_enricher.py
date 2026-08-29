@@ -26,24 +26,26 @@ def is_exact_volume_match(candidate_title: str, target_vol: Optional[int]) -> bo
     """
     Strict volume matcher.
     Ensures that if target_vol is 1, it does NOT accidentally match '11', '16', '2', etc.
+    Also ignores commemorative numbers like '20주년', '3판', '100쇄'.
     """
     if target_vol is None or target_vol <= 0:
         return True
 
+    # Strip out non-volume numbers like '20주년', '100쇄', '제2판'
+    cleaned = re.sub(r'\d+주년|\d+쇄|\d+만부|\d+만\b|제?\d+판', '', candidate_title)
+
     # 1. Reject if an explicit conflicting volume suffix is found (e.g. 11권, 16권, 2권)
-    explicit_vols = re.findall(r'(?<!\d)(\d+)(?:권|부|탄|화|집)', candidate_title)
+    explicit_vols = re.findall(r'(?<!\d)(\d+)(?:권|부|탄|화|집)', cleaned)
     if explicit_vols:
         if int(explicit_vols[0]) != target_vol:
             return False
         return True
 
     # 2. Look for standalone integer matches (e.g. "제목 1", "제목 (1)", "제목! 1")
-    all_numbers = [int(n) for n in re.findall(r'(?<!\d)(\d+)(?!\d)', candidate_title)]
+    all_numbers = [int(n) for n in re.findall(r'(?<!\d)(\d+)(?!\d)', cleaned)]
     valid_vols = [n for n in all_numbers if n < 1900] # Ignore publication years
 
     if target_vol in valid_vols:
-        # Check if a higher number like 11 or 16 is also present alongside 1
-        # e.g., "나와 호랑이님 16" should not match target_vol=1
         if target_vol == 1:
             higher_vols = [n for n in valid_vols if n > 1]
             if higher_vols and target_vol not in explicit_vols:
@@ -58,13 +60,12 @@ def is_exact_volume_match(candidate_title: str, target_vol: Optional[int]) -> bo
     return False
 
 def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optional[int]) -> List[Dict[str, Any]]:
-    """Parses all item boxes from Aladin HTML search page."""
+    """Parses all item boxes from Aladin HTML search page with strict image and genre filtering."""
     boxes = html.split('class="ss_book_box"')[1:]
     candidates = []
 
     # Normalize by stripping all whitespace and non-alphanumeric/non-cjk symbols
     norm_base = re.sub(r'[^\w가-힣a-zA-Z0-9\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]+', '', clean_title).lower()
-    # Normalize Kanji variance: 畵 <-> 画
     norm_base = norm_base.replace('画', '畵')
 
     for box in boxes:
@@ -88,38 +89,71 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
         if not is_exact_volume_match(cand_title, target_vol):
             continue
 
-        # Cover Image
-        img_match = re.search(r'<img[^>]+src=["\'](https?://image\.aladin\.co\.kr/product/[^"\'\s>]+)["\']', box)
-        cover_url = None
-        isbn = None
-        if img_match:
-            raw_cover = img_match.group(1)
-            # Upgrade cover to high-resolution 500px cover
-            cover_url = re.sub(r'/cover\d*/', '/cover500/', raw_cover)
-            isbn_m = re.search(r'/cover\w*/([a-zA-Z0-9]+)_\d+\.', raw_cover)
-            if isbn_m:
-                isbn = isbn_m.group(1)
-
-        # Author
+        # Author and Category info
         author = "알 수 없음"
+        publisher_info = ""
         li_matches = re.findall(r'<li>(.*?)</li>', box, re.DOTALL)
         for li in li_matches:
             clean_li = re.sub(r'<[^>]+>', '', li).strip()
             if '|' in clean_li and not any(k in clean_li for k in ['배송', '마일리지', '세일', '정가', '소득공제']):
                 parts = clean_li.split('|')
                 author = re.sub(r'\([^)]*\)', '', parts[0].strip()).strip()
+                publisher_info = clean_li
                 break
 
-        # Score candidate
+        # Cover Image Extraction: STRICTLY AVOID SpineShelf (book spine)
+        all_imgs = re.findall(r'https?://image\.aladin\.co\.kr/product/[^"\'\s>]+\.(?:jpg|png)', box)
+        cover_url = None
+        isbn = None
+
+        # 1. Prefer explicit front covers (cover200, cover150, cover500, cover/)
+        front_covers = [u for u in all_imgs if 'cover' in u.lower() and 'spineshelf' not in u.lower()]
+        if front_covers:
+            # Upgrade to cover500
+            cover_url = re.sub(r'/cover\d*/', '/cover500/', front_covers[0])
+        elif all_imgs:
+            # 2. If only SpineShelf exists, convert SpineShelf/..._d.jpg to cover500/..._1.jpg
+            first_img = all_imgs[0]
+            if 'spineshelf' in first_img.lower():
+                cover_url = re.sub(r'/SpineShelf/', '/cover500/', first_img, flags=re.I)
+                cover_url = re.sub(r'_[a-zA-Z]\.jpg$', '_1.jpg', cover_url, flags=re.I)
+            else:
+                cover_url = first_img
+
+        if cover_url:
+            isbn_m = re.search(r'/cover\w*/([a-zA-Z0-9]+)_\d+\.', cover_url)
+            if isbn_m:
+                isbn = isbn_m.group(1)
+
+        # Scoring candidate
         score = 50
+        has_explicit_target_num = False
+        if target_vol:
+            cleaned_title = re.sub(r'\d+주년|\d+쇄|\d+만부|\d+만\b|제?\d+판', '', cand_title)
+            explicit_nums = [int(n) for n in re.findall(r'(?<!\d)(\d+)(?!\d)', cleaned_title) if int(n) < 1900]
+            if target_vol in explicit_nums:
+                score += 50 # Strongly favor candidate with exact target volume number!
+                has_explicit_target_num = True
+
         if norm_base == norm_cand:
-            score += 30
+            score += 30 if (not target_vol or has_explicit_target_num) else 10
+        elif norm_base in norm_cand:
+            score += 20
+
         if cover_url:
             score += 20
+
+        # Genre adjustment: prefer original novel/light novel over comic adaptation
+        comb_text = f"{cand_title} {publisher_info}".lower()
+        if any(c in comb_text for c in ['(만화)', '코믹', '만화판', '앤솔로지', '코믹스']):
+            score -= 40
+        if any(n in comb_text for n in ['라이트노벨', '소설', '문고', '문학', '노블']):
+            score += 30
 
         candidates.append({
             "title": cand_title,
             "author": author,
+            "publisher": publisher_info,
             "cover_url": cover_url,
             "isbn": isbn,
             "score": score,
@@ -212,6 +246,70 @@ def enrich_book_info(title: str, volume: Optional[int] = None, author_hint: Opti
         return meta
 
     return None
+
+def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    Searches both Aladin and Google Books for a manual lookup query,
+    returning a deduplicated list of candidates for the user to choose from.
+    """
+    results = []
+    seen_titles = set()
+
+    # 1. Search Aladin
+    clean_q = clean_book_title(query)
+    search_q = f"{clean_q} {volume}" if volume else clean_q
+    try:
+        url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={urllib.parse.quote(search_q)}"
+        r = requests.get(url, headers=HEADERS, timeout=6)
+        if r.status_code == 200:
+            aladin_cands = parse_aladin_search_results(r.text, clean_q, volume)
+            for c in aladin_cands[:6]:
+                norm_key = f"{c['title']}_{c['author']}".lower()
+                if norm_key not in seen_titles:
+                    seen_titles.add(norm_key)
+                    results.append({
+                        "title": c['title'],
+                        "author": c['author'],
+                        "thumbnail": c.get('cover_url'),
+                        "isbn_13": c.get('isbn'),
+                        "isbn_10": None,
+                        "source": "Aladin"
+                    })
+    except Exception as e:
+        logger.debug(f"Candidate search (Aladin) error: {e}")
+
+    # 2. Search Google Books
+    try:
+        g_url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(search_q)}"
+        gr = requests.get(g_url, timeout=5)
+        if gr.status_code == 200:
+            data = gr.json()
+            for item in data.get('items', [])[:5]:
+                info = item.get('volumeInfo', {})
+                cand_t = info.get('title', '')
+                cand_auth = ", ".join(info.get('authors', [])) or "알 수 없음"
+                thumb = info.get('imageLinks', {}).get('thumbnail')
+                if thumb and thumb.startswith('http://'):
+                    thumb = 'https://' + thumb[7:]
+
+                identifiers = info.get('industryIdentifiers', [])
+                isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
+
+                norm_key = f"{cand_t}_{cand_auth}".lower()
+                if norm_key not in seen_titles:
+                    seen_titles.add(norm_key)
+                    results.append({
+                        "title": cand_t,
+                        "author": cand_auth,
+                        "thumbnail": thumb,
+                        "isbn_13": isbn,
+                        "isbn_10": None,
+                        "source": "Google Books"
+                    })
+    except Exception as e:
+        logger.debug(f"Candidate search (Google) error: {e}")
+
+    return results
 
 import threading
 import time

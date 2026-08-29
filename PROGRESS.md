@@ -12,6 +12,7 @@
 - [x] [Implementation] Step 9: Non-blocking batch enrichment API (`/api/admin/enrich`) & UI ("정보 자동 검색" button with live status polling)
 - [x] [Implementation] Step 10: Background PDF scanner integration (`enrich_metadata=True`) & unit/integration test suite (`test_enricher.py`)
 - [x] [Implementation] Step 11: 100% verified on live database (18 books, 29 files all matched with zero false positives) and Evaluator subagent PASS
+- [x] [Debugging] Step 12: SpineShelf elimination (0 remaining in DB, front 500px covers enforced), novel vs comic disambiguation (Buriki matched), canonical author accuracy (Robert Cialdini matched), and Apple-like modal UI/UX overhaul with multi-source candidate selection & fixed aspect ratio (Evaluator subagent PASS)
 
 ## In progress
 
@@ -20,8 +21,9 @@
 ## Notes
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based.
-- Existing database (`instance/library.db`) with 29 files, 18 books, and reading states successfully preserved and enriched with 500px covers and real authors.
+- Existing database (`instance/library.db`) with 29 files, 18 books, and reading states successfully preserved and enriched with 500px front covers and canonical authors (SpineShelf 0 remaining).
 - 14/14 automated tests passed in `_testcode/specs/`.
-- Evaluator subagent verified and confirmed PASS.
+- Evaluator subagent verified all targeted user feedback items and confirmed PASS.
+
 
 
