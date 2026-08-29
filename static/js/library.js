@@ -705,98 +705,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // --- iOS Style Segmented Control & Instant Tab Filtering ---
-        const segmentBtns = document.querySelectorAll('.segment-btn');
-        const tabSections = document.querySelectorAll('[data-tab-content]');
-        const allBooksShelf = document.querySelector('.all-books-shelf');
-
-        const switchTab = (targetTab) => {
-            segmentBtns.forEach(btn => {
-                if (btn.dataset.tab === targetTab) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-
-            const shelfTitle = document.getElementById('shelf-section-title');
-            const unreadBanner = document.getElementById('unread-discovery-banner');
-
-            if (targetTab === 'reading') {
-                if (unreadBanner) unreadBanner.style.display = 'none';
-                tabSections.forEach(sec => {
-                    if (sec.dataset.tabContent === 'reading') {
-                        sec.style.display = '';
-                    } else {
-                        sec.style.display = 'none';
-                    }
-                });
-            } else {
-                tabSections.forEach(sec => {
-                    if (sec.dataset.tabContent === 'reading') {
-                        sec.style.display = 'none';
-                    }
-                });
-
-                if (allBooksShelf) {
-                    allBooksShelf.style.display = '';
-                    const bookCards = allBooksShelf.querySelectorAll('.book-card');
-
-                    if (targetTab === 'all') {
-                        if (unreadBanner) unreadBanner.style.display = 'none';
-                        if (shelfTitle) shelfTitle.textContent = '전체 도서';
-                        bookCards.forEach(card => card.style.display = '');
-                    } else if (targetTab === 'unread') {
-                        if (unreadBanner) unreadBanner.style.display = 'flex';
-                        if (shelfTitle) shelfTitle.textContent = '미독 서재 (아직 읽지 않은 책)';
-                        bookCards.forEach(card => {
-                            if (card.dataset.status === 'unread') {
-                                card.style.display = '';
-                            } else {
-                                card.style.display = 'none';
-                            }
-                        });
-                    } else if (targetTab === 'completed') {
-                        if (unreadBanner) unreadBanner.style.display = 'none';
-                        if (shelfTitle) shelfTitle.textContent = '완독 서재 (완독한 책 🏆)';
-                        bookCards.forEach(card => {
-                            if (card.dataset.status === 'completed') {
-                                card.style.display = '';
-                            } else {
-                                card.style.display = 'none';
-                            }
-                        });
-                    }
-                }
-            // Sync mobile bottom tab bar
-            document.querySelectorAll('.mobile-tab-btn[data-tab]').forEach(b => {
-                b.classList.toggle('active', b.dataset.tab === targetTab);
-            });
-        };
-
-        segmentBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                switchTab(btn.dataset.tab);
-            });
-        });
-
-        // --- Mobile Bottom Tab Bar Sync ---
-        const mobileTabBtns = document.querySelectorAll('.mobile-tab-btn[data-tab]');
-        const mobileSettingsBtn = document.getElementById('mobile-settings-btn');
-
-        mobileTabBtns.forEach(mBtn => {
-            mBtn.addEventListener('click', () => {
-                const targetTab = mBtn.dataset.tab;
-                switchTab(targetTab);
-            });
-        });
-
-        if (mobileSettingsBtn && appSettingsModal) {
-            mobileSettingsBtn.addEventListener('click', () => {
-                appSettingsModal.classList.remove('hidden');
-            });
-        }
-
         // --- Desktop Keyboard Shortcuts (/ for search, ESC for closing modals) ---
         document.addEventListener('keydown', (e) => {
             if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
@@ -816,6 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Unread Shuffle Recommendation Logic ---
         const shufflePickBtn = document.getElementById('shuffle-pick-btn');
         const shuffleAgainBtn = document.getElementById('shuffle-again-btn');
+        const shuffleCloseBtn = document.getElementById('shuffle-close-btn');
         const shuffleModal = document.getElementById('shuffle-recommend-modal');
         const shuffleModalCloseX = document.getElementById('shuffle-modal-close-x');
         const shuffleCover = document.getElementById('shuffle-cover');
@@ -825,10 +734,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const shuffleReadBtn = document.getElementById('shuffle-read-now-btn');
 
         const pickRandomUnreadBook = () => {
-            const allCards = Array.from(document.querySelectorAll('.all-books-shelf .book-card'));
+            const allCards = Array.from(document.querySelectorAll('.book-card[data-is-group="true"]'));
+            if (allCards.length === 0) return;
+
             let eligibleCards = allCards.filter(c => c.dataset.status === 'unread');
             if (eligibleCards.length === 0) eligibleCards = allCards;
-            if (eligibleCards.length === 0) return;
 
             const randomCard = eligibleCards[Math.floor(Math.random() * eligibleCards.length)];
             const title = randomCard.querySelector('h3')?.textContent || '제목 없음';
@@ -855,7 +765,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (shufflePickBtn) shufflePickBtn.addEventListener('click', pickRandomUnreadBook);
         if (shuffleAgainBtn) shuffleAgainBtn.addEventListener('click', pickRandomUnreadBook);
-        if (shuffleModalCloseX) {
+        if (shuffleCloseBtn && shuffleModal) {
+            shuffleCloseBtn.addEventListener('click', () => {
+                shuffleModal.classList.add('hidden');
+            });
+        }
+        if (shuffleModalCloseX && shuffleModal) {
             shuffleModalCloseX.addEventListener('click', () => {
                 shuffleModal.classList.add('hidden');
             });
@@ -865,8 +780,5 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.target === shuffleModal) shuffleModal.classList.add('hidden');
             });
         }
-
-        // Initialize default view to 'reading' tab
-        switchTab('reading');
     }
 });

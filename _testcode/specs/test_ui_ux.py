@@ -33,7 +33,7 @@ class TestUIUXEnhancements(unittest.TestCase):
             self.assertIn(g['status'], ['reading', 'unread', 'completed'])
 
     def test_index_renders_ui_ux_components(self):
-        """Verify clean header, segmented control, hero continue card, and mobile tab bar render."""
+        """Verify header, bookshelf, continue reading, next volume button, and shuffle modal render."""
         with self.client.session_transaction() as sess:
             user = User.query.filter_by(username="Gruzam").first()
             sess['user_id'] = user.id
@@ -42,27 +42,24 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         html = resp.get_data(as_text=True)
 
-        # 1. Clean header & settings popover button
-        self.assertIn('app-settings-btn', html)
-        self.assertIn('app-settings-modal', html)
+        # 1. Header with action buttons
+        self.assertIn('auto-enrich-btn', html)
+        self.assertIn('scan-pdf-btn', html)
 
-        # 2. iOS Segmented Controls
-        self.assertIn('segmented-control', html)
-        self.assertIn('data-tab="reading"', html)
-        self.assertIn('data-tab="unread"', html)
-        self.assertIn('data-tab="completed"', html)
-        self.assertIn('data-tab="all"', html)
+        # 2. Book grid & cards intact
+        self.assertIn('book-grid', html)
+        self.assertIn('book-card', html)
 
-        # 3. Hero continue card
-        self.assertIn('hero-continue-card', html)
-        self.assertIn('hero-btn primary-btn', html)
+        # 3. Continue reading section
+        self.assertIn('이어 읽기', html)
 
-        # 4. Unread Shuffle Recommendation Banner & Modal
-        self.assertIn('unread-discovery-banner', html)
+        # 4. Unread Shuffle Recommendation Mini Button & Modal
+        self.assertIn('shuffle-pick-btn', html)
         self.assertIn('shuffle-recommend-modal', html)
 
-        # 5. Mobile Floating Bottom Tab Bar
-        self.assertIn('mobile-bottom-tab-bar', html)
+        # 5. Core modals
+        self.assertIn('isbn-modal', html)
+        self.assertIn('volume-select-modal', html)
 
     def test_next_volume_api_with_metadata(self):
         """Verify /api/next_volume/<file_id> returns next volume number and title."""
