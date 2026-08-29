@@ -453,6 +453,72 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Auto Metadata Enrichment Logic ---
+    const autoEnrichBtn = document.getElementById('auto-enrich-btn');
+    if (autoEnrichBtn) {
+        let enrichPollInterval = null;
+
+        const pollEnrichStatus = () => {
+            enrichPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/admin/enrich/status');
+                    if (!res.ok) return;
+                    const status = await res.json();
+
+                    if (status.state === 'running') {
+                        const total = status.total_books || 0;
+                        const processed = status.processed_books || 0;
+                        autoEnrichBtn.textContent = total > 0 ? `취득 중 (${processed}/${total})` : '취득 중...';
+                    } else if (status.state === 'completed') {
+                        clearInterval(enrichPollInterval);
+                        enrichPollInterval = null;
+                        showToast(status.message || '도서 정보 자동 완성 완료!');
+                        autoEnrichBtn.textContent = '정보 자동 검색';
+                        autoEnrichBtn.disabled = false;
+                        setTimeout(() => location.reload(), 1200);
+                    } else if (status.state === 'error') {
+                        clearInterval(enrichPollInterval);
+                        enrichPollInterval = null;
+                        showToast(status.message || '도서 정보 검색 오류', true);
+                        autoEnrichBtn.textContent = '정보 자동 검색';
+                        autoEnrichBtn.disabled = false;
+                    }
+                } catch (e) {
+                    console.error('Error polling enrichment status:', e);
+                }
+            }, 1000);
+        };
+
+        autoEnrichBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            autoEnrichBtn.textContent = '검색 시작...';
+            autoEnrichBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/admin/enrich', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ force_all: false })
+                });
+
+                const data = await response.json();
+                if (response.ok || response.status === 409) {
+                    showToast(data.message || '온라인 도서 정보 검색을 시작합니다.');
+                    pollEnrichStatus();
+                } else {
+                    showToast('요청 실패: ' + (data.error || response.statusText), true);
+                    autoEnrichBtn.textContent = '정보 자동 검색';
+                    autoEnrichBtn.disabled = false;
+                }
+            } catch (err) {
+                console.error('Error starting auto enrichment:', err);
+                showToast('네트워크 오류가 발생했습니다.', true);
+                autoEnrichBtn.textContent = '정보 자동 검색';
+                autoEnrichBtn.disabled = false;
+            }
+        });
+    }
+
     // --- Autocomplete Logic ---
     const searchInput = document.querySelector('input[name="search_query"]');
     const autocompleteResults = document.getElementById('autocomplete-results');

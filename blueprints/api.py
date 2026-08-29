@@ -15,6 +15,23 @@ def book_lookup_by_title_volume():
     if not title:
         return jsonify({"error": "Title is required"}), 400
 
+    # 1. Try high-precision Aladin enrichment first
+    try:
+        from services.book_enricher import enrich_book_info
+        vol_num = int(float(volume)) if volume and volume.replace('.', '', 1).isdigit() else 1
+        enriched = enrich_book_info(title, volume=vol_num)
+        if enriched and enriched.get('cover_url'):
+            return jsonify({
+                "title": enriched['title'],
+                "author": enriched['author'],
+                "thumbnail": enriched.get('cover_url'),
+                "isbn_13": enriched.get('isbn'),
+                "isbn_10": None
+            })
+    except Exception as e:
+        logger.debug(f"Aladin enrichment check error: {e}")
+
+    # 2. Fallback to Google Books API
     resp = lookup_google_books_by_title_volume(title, volume)
     if resp.get("status") != 200:
         return jsonify({"error": resp.get("error", "Error")}), resp.get("status", 500)

@@ -36,7 +36,7 @@ class LibraryScanner:
             return status_copy
 
     @classmethod
-    def start_scan(cls, app, batch_size=30, clean_missing=False) -> bool:
+    def start_scan(cls, app, batch_size=30, clean_missing=False, enrich_metadata=True) -> bool:
         """
         Starts the scanner in a background thread if not already running.
         Returns True if started, False if already in progress.
@@ -60,14 +60,14 @@ class LibraryScanner:
 
         thread = threading.Thread(
             target=cls._run_scan_thread,
-            args=(app, batch_size, clean_missing),
+            args=(app, batch_size, clean_missing, enrich_metadata),
             daemon=True
         )
         thread.start()
         return True
 
     @classmethod
-    def _run_scan_thread(cls, app, batch_size: int, clean_missing: bool):
+    def _run_scan_thread(cls, app, batch_size: int, clean_missing: bool, enrich_metadata: bool = True):
         from models import db, Book, File
 
         with app.app_context():
@@ -133,13 +133,34 @@ class LibraryScanner:
                         db.session.add(book)
                         db.session.flush()
 
+                    # Optional metadata auto-enrichment on scan
+                    file_author = book.author
+                    file_cover = None
+                    display_title = stem
+
+                    if enrich_metadata:
+                        try:
+                            from services.book_enricher import enrich_book_info
+                            meta = enrich_book_info(title, volume=volume, author_hint=book.author)
+                            if meta:
+                                if meta.get('author') and meta['author'] not in ("알 수 없음", "Unknown"):
+                                    book.author = meta['author']
+                                    file_author = meta['author']
+                                if not book.cover_url and meta.get('cover_url'):
+                                    book.cover_url = meta['cover_url']
+                                file_cover = meta.get('cover_url')
+                                display_title = meta.get('title') or stem
+                        except Exception as enrich_err:
+                            logger.debug(f"Scan enrichment error for {stem}: {enrich_err}")
+
                     new_file = File(
                         book_id=book.id,
                         file_path=rel_path,
                         volume_number=volume,
                         total_pages=0,
-                        title=stem,
-                        author=book.author
+                        title=display_title,
+                        author=file_author,
+                        cover_url=file_cover
                     )
                     db.session.add(new_file)
                     existing_paths[rel_path] = True

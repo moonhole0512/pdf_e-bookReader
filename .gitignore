@@ -11,8 +11,7 @@ ENV/
 
 # Local configuration & secrets
 .env
-instance/*.db
-instance/*.db.bak
+instance/*.db*
 instance/.secret_key
 
 # Debug and test scratch directories (Project rule)
@@ -22,3 +21,7 @@ _testcode/temp/
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# User PDF files
+pdfs/
+

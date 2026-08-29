@@ -13,6 +13,7 @@
             <span>{{ g.user.username }}님</span>
             <a href="{{ url_for('auth.logout') }}">로그아웃</a>
             <div class="scan-container">
+                <button id="auto-enrich-btn" class="scan-btn enrich-btn" title="온라인에서 표지와 저자 정보를 자동으로 검색하여 채웁니다">정보 자동 검색</button>
                 <button id="scan-pdf-btn" class="scan-btn">PDF 스캔</button>
                 <button id="scan-settings-btn" class="settings-btn">
                     <div class="settings-icon-sliders">

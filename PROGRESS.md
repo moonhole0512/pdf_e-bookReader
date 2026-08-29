@@ -8,6 +8,10 @@
 - [x] [Implementation] Step 5: Modular architecture with Flask Blueprints (auth, library, reader, admin, api)
 - [x] [Implementation] Step 6: Portable Windows local test runner (run.bat) & test suite (_testcode/specs/)
 - [x] [Implementation] Step 7: Live verification, Evaluator subagent PASS & end-to-end testing
+- [x] [Implementation] Step 8: High-precision online book metadata engine (`services/book_enricher.py`, Aladin + Google Books, 500px high-res covers, strict volume collision prevention)
+- [x] [Implementation] Step 9: Non-blocking batch enrichment API (`/api/admin/enrich`) & UI ("정보 자동 검색" button with live status polling)
+- [x] [Implementation] Step 10: Background PDF scanner integration (`enrich_metadata=True`) & unit/integration test suite (`test_enricher.py`)
+- [x] [Implementation] Step 11: 100% verified on live database (18 books, 29 files all matched with zero false positives) and Evaluator subagent PASS
 
 ## In progress
 
@@ -15,7 +19,9 @@
 
 ## Notes
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
-- Zero extra heavy dependencies (e.g. no Redis/Celery) to respect 512MB RAM constraints.
-- Existing database (`instance/library.db`) with 29 files, 18 books, and reading states successfully migrated and preserved with zero data loss.
-- Evaluator subagent verified and passed all 7 acceptance criteria.
+- Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based.
+- Existing database (`instance/library.db`) with 29 files, 18 books, and reading states successfully preserved and enriched with 500px covers and real authors.
+- 14/14 automated tests passed in `_testcode/specs/`.
+- Evaluator subagent verified and confirmed PASS.
+
 

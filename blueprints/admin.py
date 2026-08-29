@@ -68,3 +68,34 @@ def update_metadata():
     logger.info(f"Updated metadata for Book {book_id}: title='{book.title}', author='{book.author}'")
 
     return jsonify({"success": True, "message": "도서 정보가 성공적으로 업데이트되었습니다."})
+
+@admin_bp.route('/api/admin/enrich', methods=['POST'])
+@login_required
+def trigger_enrichment():
+    """Triggers background metadata enrichment for the library."""
+    from services.book_enricher import LibraryEnricher
+    data = request.json or {}
+    force_all = data.get('force_all', False)
+
+    app = current_app._get_current_object()
+    started = LibraryEnricher.start_enrichment(app, force_all=force_all)
+
+    if started:
+        return jsonify({
+            "success": True,
+            "message": "도서 정보 자동 검색 및 표지 다운로드를 시작했습니다.",
+            "status": LibraryEnricher.get_status()
+        })
+    else:
+        return jsonify({
+            "success": False,
+            "message": "이미 도서 정보 검색 작업이 진행 중입니다.",
+            "status": LibraryEnricher.get_status()
+        }), 409
+
+@admin_bp.route('/api/admin/enrich/status', methods=['GET'])
+@login_required
+def enrichment_status():
+    """Returns current status of the background library enricher."""
+    from services.book_enricher import LibraryEnricher
+    return jsonify(LibraryEnricher.get_status())
