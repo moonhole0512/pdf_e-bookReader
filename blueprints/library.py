@@ -45,7 +45,7 @@ def index():
             'pages_left': pages_left,
             'next_volume_file': next_vol
         })
-        if len(recent_lounge_items) >= 3:
+        if len(recent_lounge_items) >= 4:
             break
 
     # 2. 독서 중인 책 목록 (상단 라운지에 노출되지 않은 나머지 독서 중 그룹 상위 5개)

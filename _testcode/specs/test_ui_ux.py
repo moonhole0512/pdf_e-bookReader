@@ -123,8 +123,8 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertNotIn('fullscreen-toggle-btn', html)
         self.assertNotIn('fab-toggle-btn', html)
 
-    def test_multi_card_reading_lounge_up_to_3_books(self):
-        """Verify the Now Reading Lounge renders up to 3 recent reading cards in a responsive grid."""
+    def test_multi_card_reading_lounge_up_to_4_books(self):
+        """Verify the Now Reading Lounge renders up to 4 recent reading cards in a responsive 2x2 grid."""
         with self.client.session_transaction() as sess:
             user = User.query.filter_by(username="Gruzam").first()
             sess['user_id'] = user.id
@@ -137,6 +137,11 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('reading-lounge-section', html)
         self.assertIn('reading-lounge-grid', html)
         self.assertIn('reading-lounge-card', html)
+
+        # Confirm CSS supports count-4 and 2x2 grid
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        self.assertIn('.reading-lounge-grid.count-4 {', css)
 
     def test_file_update_api_and_book_sync(self):
         """Verify /api/file/update saves title, author, and cover, synchronizing parent Book."""

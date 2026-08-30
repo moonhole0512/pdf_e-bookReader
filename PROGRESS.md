@@ -36,6 +36,7 @@
 - [x] [Debugging] Step 31: Scrubber Progress Synchronization & Dynamic Tooltip Position Tracking - Resolved root cause where missing `#scrubber-tooltip.hidden` and global `.hidden` CSS allowed static "p. 1" dummy text to remain visible on load; added global `.hidden` and `#scrubber-tooltip.hidden` rules, emptied HTML tooltip markup, implemented dynamic position/page tracking with `updateTooltip(clientX, targetPage)` on mouse/touch scrubbing, ensured clean hide on release/leave, and synced scrubber progress and thumb with `updateScrubberUI()` on load and page flips (Evaluator subagent PASS)
 - [x] [Implementation] Step 32: Reader Floating Dock Redesign & YAGNI Cleanup - Replaced 6 bulky vertical stacked circular buttons with an Apple-style horizontal glassmorphic pill dock (`.reader-floating-dock`), completely eliminated unneeded TOC drawer/button and fullscreen toggle (as requested for scanned PDF books), streamlined controls to 4 sleek inline SVG actions (Exit to Library, Zoom Out, Zoom In, Settings), and updated `test_reader_touch_zones_and_scrubber_and_toc` (Evaluator subagent PASS)
 - [x] [Implementation] Step 33: Floating Dock Top-Right Repositioning & Relative Zoom Enhancement - Moved floating dock to top-right (`top: 15px; right: 20px;`) aligning with page indicator to form a balanced top header and 100% eliminate overlap with the bottom scrubber; updated Zen mode upward fade (`translateY(-8px) !important;`); upgraded `changeScale` in `reader.js` to calculate zoom relative to `lastRenderedScale` so zooming from fit-to-width/fit-to-height smoothly scales the visible page instead of jumping to arbitrary scale values, added keyboard shortcuts (+, -, =, _), and added `test_floating_dock_top_right_and_relative_zoom` (Evaluator subagent PASS)
+- [x] [Implementation] Step 34: Now Reading Lounge Expansion to Up to 4 Books (2x2 Grid) - Expanded `recent_lounge_items` limit from 3 to 4 in `blueprints/library.py`, updated `.reading-lounge-grid` in `static/css/style.css` with `.count-4` styling (4 columns on wide screens, balanced 2x2 grid on tablets and mobile screens <= 600px with compact vertical content balancing), eliminating the awkward empty slot on 2-column layouts, and updated `test_multi_card_reading_lounge_up_to_4_books` (Evaluator subagent PASS)
 
 ## In progress
 
@@ -46,7 +47,7 @@
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
 - 28/28 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 33 items and confirmed PASS.
+- Evaluator subagent verified Step 34 items and confirmed PASS.
 
 
 
