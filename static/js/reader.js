@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Image Action Menu & Toast Elements
     const imageActionMenu = document.getElementById('image-action-menu');
+    const imageActionBackdrop = document.getElementById('image-action-backdrop');
     const imageActionPageLabel = document.getElementById('image-action-page-label');
     const imgActionCopyBtn = document.getElementById('img-action-copy');
     const imgActionSaveBtn = document.getElementById('img-action-save');
@@ -599,18 +600,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zonePrev) {
         zonePrev.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (Date.now() - menuDismissTimestamp < 250) return;
             if (viewMode === 'rtl') onNextPage(); else onPrevPage();
         });
     }
     if (zoneNext) {
         zoneNext.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (Date.now() - menuDismissTimestamp < 250) return;
             if (viewMode === 'rtl') onPrevPage(); else onNextPage();
         });
     }
     if (zoneCenter) {
         zoneCenter.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (Date.now() - menuDismissTimestamp < 250) return;
             toggleReaderControls();
         });
     }
@@ -793,11 +797,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2200);
     };
 
+    let menuDismissTimestamp = 0;
+
     const closeImageMenu = () => {
         if (imageActionMenu && !imageActionMenu.classList.contains('hidden')) {
             imageActionMenu.classList.add('hidden');
         }
+        if (imageActionBackdrop && !imageActionBackdrop.classList.contains('hidden')) {
+            imageActionBackdrop.classList.add('hidden');
+        }
     };
+
+    const dismissImageMenuSafely = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        }
+        menuDismissTimestamp = Date.now();
+        closeImageMenu();
+    };
+
+    if (imageActionBackdrop) {
+        imageActionBackdrop.addEventListener('click', dismissImageMenuSafely, true);
+        imageActionBackdrop.addEventListener('touchend', dismissImageMenuSafely, true);
+        imageActionBackdrop.addEventListener('contextmenu', (e) => {
+            dismissImageMenuSafely(e);
+            handleContextMenu(e);
+        }, true);
+    }
 
     const getTargetCanvas = (clientX, clientY) => {
         const canvases = viewer.querySelectorAll('canvas');
@@ -838,6 +866,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const posX = Math.min(Math.max(10, x), window.innerWidth - menuWidth - 10);
         const posY = Math.min(Math.max(10, y), window.innerHeight - menuHeight - 10);
 
+        if (imageActionBackdrop) {
+            imageActionBackdrop.classList.remove('hidden');
+        }
         imageActionMenu.style.left = `${posX}px`;
         imageActionMenu.style.top = `${posY}px`;
         imageActionMenu.classList.remove('hidden');
@@ -1121,8 +1152,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 2. Pure Tap (Not a drag/scroll, short duration, minimal displacement)
-        // This ensures scrolling never triggers accidental page flips or menu toggling!
+        // This ensures scrolling or dismissing menus never triggers accidental page flips or menu toggling!
         if (!isTouchScrolling && Math.abs(diffX) < 12 && Math.abs(diffY) < 12 && touchDuration < 350) {
+            if (Date.now() - menuDismissTimestamp < 250) {
+                touchStartX = 0;
+                touchStartY = 0;
+                return;
+            }
             const screenWidth = window.innerWidth;
             const leftBoundary = screenWidth * 0.25;
             const rightBoundary = screenWidth * 0.75;

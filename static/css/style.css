@@ -3040,7 +3040,15 @@ header nav a:hover {
     font-size: 10px !important;
 }
 
-/* --- Reader Image Action Menu (Apple Glassmorphism) --- */
+/* --- Reader Image Action Backdrop & Menu (Apple Glassmorphism) --- */
+.image-action-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: transparent;
+    cursor: default;
+}
+
 .image-action-menu {
     position: fixed;
     z-index: 10000;

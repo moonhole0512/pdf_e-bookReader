@@ -658,5 +658,29 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertTrue(data.get('success'))
         self.assertIn('total_count', data)
 
+    def test_image_action_menu_backdrop_dismiss_without_side_effects(self):
+        """Verify image action menu transparent backdrop dismisses cleanly without triggering page turns or toggles."""
+        with open('templates/reader.html', 'r', encoding='utf-8') as f:
+            reader_html = f.read()
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        # 1. Backdrop Markup in reader.html
+        self.assertIn('id="image-action-backdrop"', reader_html)
+        self.assertIn('class="image-action-backdrop hidden"', reader_html)
+
+        # 2. Backdrop CSS (z-index 9999 right below menu 10000)
+        self.assertIn('.image-action-backdrop {', css)
+        self.assertIn('z-index: 9999;', css)
+        self.assertIn('inset: 0;', css)
+
+        # 3. JS Backdrop safe dismissal and timestamp suppression
+        self.assertIn('imageActionBackdrop', js)
+        self.assertIn('dismissImageMenuSafely', js)
+        self.assertIn('menuDismissTimestamp', js)
+        self.assertIn('Date.now() - menuDismissTimestamp < 250', js)
+
 if __name__ == '__main__':
     unittest.main()
