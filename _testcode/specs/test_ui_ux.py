@@ -309,5 +309,35 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('closeSettings()', js)
         self.assertIn('e.target === settingsModalOverlay', js)
 
+    def test_reader_scrubber_tooltip_and_dynamic_tracking(self):
+        """Verify scrubber tooltip is hidden by default and dynamically tracks mouse/touch during scrubbing."""
+        from models import File
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        file_obj = File.query.first()
+        self.assertIsNotNone(file_obj)
+
+        resp = self.client.get(f'/reader/{file_obj.id}')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+
+        # 1. HTML markup has empty tooltip with .hidden class (no static "p. 1" dummy text)
+        self.assertIn('<div id="scrubber-tooltip" class="hidden"></div>', html)
+
+        # 2. CSS contains hidden rules ensuring tooltip never leaks into idle reading view
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        self.assertIn('.hidden {\n    display: none !important;\n}', css)
+        self.assertIn('#scrubber-tooltip.hidden {', css)
+
+        # 3. JS tracks mouse and touch scrubbing dynamically
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        self.assertIn('function updateTooltip', js)
+        self.assertIn('function hideTooltip', js)
+        self.assertIn('updateScrubberUI()', js)
+
 if __name__ == '__main__':
     unittest.main()

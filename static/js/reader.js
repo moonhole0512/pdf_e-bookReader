@@ -488,6 +488,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrubberTooltip = document.getElementById('scrubber-tooltip');
 
     if (scrubberTrack) {
+        function updateTooltip(clientX, targetPage) {
+            if (!scrubberTooltip || !pdfDoc || pdfDoc.numPages <= 0) return;
+            const clampedX = Math.max(60, Math.min(window.innerWidth - 60, clientX));
+            scrubberTooltip.style.left = `${clampedX}px`;
+            scrubberTooltip.textContent = `p. ${targetPage} / ${pdfDoc.numPages}`;
+            scrubberTooltip.classList.remove('hidden');
+        }
+
+        function hideTooltip() {
+            if (scrubberTooltip) {
+                scrubberTooltip.classList.add('hidden');
+            }
+        }
+
         const handleScrub = (e) => {
             if (!pdfDoc || pdfDoc.numPages <= 0) return;
             const rect = scrubberTrack.getBoundingClientRect();
@@ -495,6 +509,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
             let targetPage = Math.max(1, Math.min(pdfDoc.numPages, Math.round(ratio * pdfDoc.numPages)));
             if (viewMode !== 'one' && targetPage % 2 === 0 && targetPage > 1) targetPage--;
+
+            updateTooltip(clientX, targetPage);
+
             if (targetPage !== pageNum) {
                 pageNum = targetPage;
                 renderQueue(pageNum);
@@ -503,38 +520,65 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         let isScrubbing = false;
+
         scrubberTrack.addEventListener('mousedown', (e) => {
             isScrubbing = true;
             handleScrub(e);
         });
+
         window.addEventListener('mousemove', (e) => {
-            if (isScrubbing) handleScrub(e);
+            if (isScrubbing) {
+                handleScrub(e);
+            }
         });
+
         window.addEventListener('mouseup', () => {
-            isScrubbing = false;
+            if (isScrubbing) {
+                isScrubbing = false;
+                hideTooltip();
+            }
         });
 
         scrubberTrack.addEventListener('mousemove', (e) => {
-            if (!pdfDoc || pdfDoc.numPages <= 0) return;
-            const rect = scrubberTrack.getBoundingClientRect();
-            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            const hoverPage = Math.max(1, Math.min(pdfDoc.numPages, Math.round(ratio * pdfDoc.numPages)));
-            if (scrubberTooltip) {
-                scrubberTooltip.textContent = `p. ${hoverPage} / ${pdfDoc.numPages}`;
-                scrubberTooltip.style.left = `${e.clientX}px`;
-                scrubberTooltip.classList.remove('hidden');
+            if (!isScrubbing && pdfDoc && pdfDoc.numPages > 0) {
+                const rect = scrubberTrack.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                const hoverPage = Math.max(1, Math.min(pdfDoc.numPages, Math.round(ratio * pdfDoc.numPages)));
+                updateTooltip(e.clientX, hoverPage);
             }
         });
+
         scrubberTrack.addEventListener('mouseleave', () => {
-            if (scrubberTooltip) scrubberTooltip.classList.add('hidden');
+            if (!isScrubbing) {
+                hideTooltip();
+            }
         });
 
+        // Mobile touch scrubbing
         scrubberTrack.addEventListener('touchstart', (e) => {
+            isScrubbing = true;
             handleScrub(e);
         }, { passive: true });
+
         scrubberTrack.addEventListener('touchmove', (e) => {
-            handleScrub(e);
+            if (isScrubbing) {
+                handleScrub(e);
+            }
         }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            if (isScrubbing) {
+                isScrubbing = false;
+                hideTooltip();
+            }
+        });
+
+        window.addEventListener('touchcancel', () => {
+            if (isScrubbing) {
+                isScrubbing = false;
+                hideTooltip();
+            }
+        });
     }
 
     // --- TOC / Bookmarks Navigation ---
@@ -728,6 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfDoc = doc;
         pageCountSpan.textContent = pdfDoc.numPages;
         renderQueue(pageNum);
+        updateScrubberUI();
         loadOutline();
     }).finally(() => {
         setTimeout(() => { 

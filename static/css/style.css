@@ -34,6 +34,10 @@ body::-webkit-scrollbar-thumb {
     border: 2px solid var(--secondary-bg);
 }
 
+.hidden {
+    display: none !important;
+}
+
 /* --- Login Page --- */
 .login-container {
     max-width: 400px;
@@ -2357,20 +2361,30 @@ header nav a:hover {
 
 #scrubber-tooltip {
     position: fixed;
-    bottom: 64px;
+    bottom: 60px;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(6px);
-    color: #fff;
-    padding: 4px 10px;
-    border-radius: 6px;
+    background: rgba(16, 18, 24, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: #ffffff;
+    padding: 5px 12px;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 600;
+    letter-spacing: -0.01em;
     pointer-events: none;
     white-space: nowrap;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
     z-index: 70;
+    opacity: 1;
+    transition: opacity 0.15s ease;
+}
+
+#scrubber-tooltip.hidden {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 /* --- TOC Sidebar Drawer --- */

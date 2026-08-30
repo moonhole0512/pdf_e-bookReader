@@ -33,6 +33,7 @@
 - [x] [Implementation] Step 28: GPU-Accelerated Native SVG Sharpen Filter Option - Implemented zero-JS-loop, 100% GPU-accelerated convolution matrix filters (`<feConvolveMatrix>`) in `templates/reader.html` for mild and strong sharpening of blurry book scans, added 3-step button group (`[끄기]`, `[보통]`, `[강하게]`) in settings panel, persisted mode in `localStorage`, and added `test_reader_sharpen_filter_options` (Evaluator subagent PASS)
 - [x] [Implementation] Step 29: Mobile/Touch Screen Chevron Hint Hiding - Added `@media (max-width: 768px), (hover: none) and (pointer: coarse)` in `style.css` to hide `.zone-hint` (<, >) on mobile phones and tablets, completely preventing occlusion of book pages during touch navigation while preserving desktop margin hover indicators (Evaluator subagent PASS)
 - [x] [Implementation] Step 30: Reader Settings Overlay Modal & Click-Outside Auto-Close - Replaced legacy 320px right-sidebar drawer with a centered Apple-style glassmorphic modal overlay (`#settings-modal-overlay` with backdrop blur, rounded card, pop animation), removed obsolete `.shifted-for-panel` CSS, implemented automatic backdrop click-outside closing and circular X close button, and added `test_reader_settings_modal_overlay` (Evaluator subagent PASS)
+- [x] [Debugging] Step 31: Scrubber Progress Synchronization & Dynamic Tooltip Position Tracking - Resolved root cause where missing `#scrubber-tooltip.hidden` and global `.hidden` CSS allowed static "p. 1" dummy text to remain visible on load; added global `.hidden` and `#scrubber-tooltip.hidden` rules, emptied HTML tooltip markup, implemented dynamic position/page tracking with `updateTooltip(clientX, targetPage)` on mouse/touch scrubbing, ensured clean hide on release/leave, and synced scrubber progress and thumb with `updateScrubberUI()` on load and page flips (Evaluator subagent PASS)
 
 ## In progress
 
@@ -42,8 +43,8 @@
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
-- 26/26 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 30 items and confirmed PASS.
+- 27/27 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
+- Evaluator subagent verified Step 31 items and confirmed PASS.
 
 
 
