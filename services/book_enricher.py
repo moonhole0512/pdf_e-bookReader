@@ -59,10 +59,14 @@ def is_exact_volume_match(candidate_title: str, target_vol: Optional[int]) -> bo
 
     return False
 
-def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optional[int]) -> List[Dict[str, Any]]:
+def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optional[int], is_isbn_query: bool = False) -> List[Dict[str, Any]]:
     """Parses all item boxes from Aladin HTML search page with strict image and genre filtering."""
     boxes = html.split('class="ss_book_box"')[1:]
     candidates = []
+
+    clean_num = re.sub(r'[-\s]', '', clean_title)
+    if not is_isbn_query:
+        is_isbn_query = bool(re.fullmatch(r'\d{9}[\dX]|\d{13}', clean_num))
 
     # Normalize by stripping all whitespace and non-alphanumeric/non-cjk symbols
     norm_base = re.sub(r'[^\w가-힣a-zA-Z0-9\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]+', '', clean_title).lower()
@@ -77,17 +81,18 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
         norm_cand = re.sub(r'[^\w가-힣a-zA-Z0-9\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]+', '', cand_title).lower()
         norm_cand = norm_cand.replace('画', '畵')
 
-        # Relevance check
-        if len(norm_base) <= 3:
-            if not re.search(rf'(?:^|[\s\[(]){re.escape(clean_title)}(?:[\s\]):!?~-]|\d|$)', cand_title, re.I):
-                continue
-        else:
-            if norm_base not in norm_cand and norm_cand not in norm_base:
-                continue
+        if not is_isbn_query:
+            # Relevance check
+            if len(norm_base) <= 3:
+                if not re.search(rf'(?:^|[\s\[(]){re.escape(clean_title)}(?:[\s\]):!?~-]|\d|$)', cand_title, re.I):
+                    continue
+            else:
+                if norm_base not in norm_cand and norm_cand not in norm_base:
+                    continue
 
-        # Check volume match strictly
-        if not is_exact_volume_match(cand_title, target_vol):
-            continue
+            # Check volume match strictly
+            if not is_exact_volume_match(cand_title, target_vol):
+                continue
 
         # Author and Category info
         author = "알 수 없음"
@@ -168,8 +173,8 @@ def fetch_aladin_metadata(title: str, volume: Optional[int] = None, author_hint:
     clean_t = clean_book_title(title)
     is_foreign = not has_korean(clean_t)
     
-    # Priority targets: Book first for Korean titles, Foreign/All for non-Korean
-    targets = ["Foreign", "All"] if is_foreign else ["Book", "All"]
+    # Priority targets: Book first, then eBook for out-of-print titles, then All
+    targets = ["Foreign", "eBook", "All"] if is_foreign else ["Book", "eBook", "All"]
 
     search_terms = []
     if author_hint and author_hint not in ("Unknown", "알 수 없음"):
@@ -251,32 +256,41 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
     """
     Searches both Aladin and Google Books for a manual lookup query,
     returning a deduplicated list of candidates for the user to choose from.
+    Seamlessly handles both book titles and 10/13 digit ISBN inputs.
     """
     results = []
     seen_titles = set()
 
-    # 1. Search Aladin
-    clean_q = clean_book_title(query)
-    search_q = f"{clean_q} {volume}" if volume else clean_q
-    try:
-        url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={urllib.parse.quote(search_q)}"
-        r = requests.get(url, headers=HEADERS, timeout=6)
-        if r.status_code == 200:
-            aladin_cands = parse_aladin_search_results(r.text, clean_q, volume)
-            for c in aladin_cands[:6]:
-                norm_key = f"{c['title']}_{c['author']}".lower()
-                if norm_key not in seen_titles:
-                    seen_titles.add(norm_key)
-                    results.append({
-                        "title": c['title'],
-                        "author": c['author'],
-                        "thumbnail": c.get('cover_url'),
-                        "isbn_13": c.get('isbn'),
-                        "isbn_10": None,
-                        "source": "Aladin"
-                    })
-    except Exception as e:
-        logger.debug(f"Candidate search (Aladin) error: {e}")
+    clean_num = re.sub(r'[-\s]', '', query)
+    is_isbn = bool(re.fullmatch(r'\d{9}[\dX]|\d{13}', clean_num))
+
+    # 1. Search Aladin (Book + eBook for title, Book for ISBN)
+    clean_q = clean_num if is_isbn else clean_book_title(query)
+    search_q = clean_q if (is_isbn or not volume) else f"{clean_q} {volume}"
+    aladin_targets = ["Book", "All"] if is_isbn else ["Book", "eBook"]
+
+    for target in aladin_targets:
+        try:
+            url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget={target}&SearchWord={urllib.parse.quote(search_q)}"
+            r = requests.get(url, headers=HEADERS, timeout=6)
+            if r.status_code == 200:
+                aladin_cands = parse_aladin_search_results(r.text, clean_q, None if is_isbn else volume, is_isbn_query=is_isbn)
+                for c in aladin_cands[:6]:
+                    norm_key = f"{c['title']}_{c['author']}".lower()
+                    if norm_key not in seen_titles:
+                        seen_titles.add(norm_key)
+                        results.append({
+                            "title": c['title'],
+                            "author": c['author'],
+                            "thumbnail": c.get('cover_url'),
+                            "isbn_13": clean_num if (is_isbn and len(clean_num) == 13) else c.get('isbn'),
+                            "isbn_10": clean_num if (is_isbn and len(clean_num) == 10) else None,
+                            "source": "Aladin"
+                        })
+                if is_isbn and results:
+                    break
+        except Exception as e:
+            logger.debug(f"Candidate search (Aladin {target}) error: {e}")
 
     # 2. Search Google Books
     try:

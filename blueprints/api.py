@@ -48,18 +48,26 @@ def book_lookup():
     if not isbn:
         return jsonify({"error": "ISBN is required"}), 400
 
-    # 1. Search Google Books
-    resp = lookup_google_books_by_isbn(isbn)
-    if resp.get("status") == 200 and resp.get("result"):
-        return jsonify(resp.get("result"))
-
-    # 2. Try Aladin by ISBN
+    # 1. Try Aladin by ISBN first (Accurate Korean light novel / fiction data, 500px covers, no 429 quota)
     try:
         from services.book_enricher import search_book_candidates
         cands = search_book_candidates(isbn)
         if cands:
-            return jsonify(cands[0])
+            c = cands[0]
+            return jsonify({
+                "title": c.get('title'),
+                "author": c.get('author'),
+                "thumbnail": c.get('thumbnail'),
+                "isbn_13": c.get('isbn_13'),
+                "isbn_10": c.get('isbn_10'),
+                "alt_images": []
+            })
     except Exception as e:
         logger.debug(f"Aladin ISBN lookup failed: {e}")
+
+    # 2. Fallback to Google Books
+    resp = lookup_google_books_by_isbn(isbn)
+    if resp.get("status") == 200 and resp.get("result"):
+        return jsonify(resp.get("result"))
 
     return jsonify({"error": "도서 정보를 찾을 수 없습니다."}), 404

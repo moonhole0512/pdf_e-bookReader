@@ -84,5 +84,29 @@ class TestBookEnricher(unittest.TestCase):
         # Wait briefly for thread to finish on empty DB
         time.sleep(0.3)
 
+    def test_isbn_exact_lookup_and_bypass_relevance(self):
+        """Verify search_book_candidates and /api/book/lookup resolve exact ISBNs even for out-of-print books."""
+        from services.book_enricher import search_book_candidates
+        # 1. search_book_candidates with real light novel ISBN 9788926780534
+        results = search_book_candidates("9788926780534")
+        self.assertTrue(len(results) >= 1)
+        first = results[0]
+        self.assertEqual(first.get('isbn_13'), "9788926780534")
+        self.assertIn("호랑이", first.get('title', ''))
+
+        # 2. Test /api/book/lookup endpoint with login
+        user = User(username="isbn_test_user", is_admin=False)
+        db.session.add(user)
+        db.session.commit()
+
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+
+        resp = self.client.get('/api/book/lookup?isbn=9788926780534')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data.get('isbn_13'), "9788926780534")
+        self.assertIsNotNone(data.get('thumbnail'))
+
 if __name__ == '__main__':
     unittest.main()

@@ -23,6 +23,7 @@
 - [x] [Implementation] Step 18: Reader Immersion & Direct Navigation Overhaul - Removed redundant continue buttons (direct 1-touch card-to-reader navigation), added 3-way click/tap screen navigation zones (left/right for paging, center for Zen control toggle), mobile touch swipe/tap, timeline scrubber with hover page tooltip, PDF TOC outline sidebar drawer, and library sorting/view mode toggle (Evaluator subagent PASS)
 - [x] [Debugging] Step 19: Reading Badge Redesign & Tooltip Collision Prevention - Eliminated duplicate CSS rule causing vertical stretching of `.reading-badge`, upgraded to sleek glassmorphic pill badge (`📖 읽는 중`), removed duplicate title tooltip from `.isbn-btn` and added automatic parent title suppression on hover (Evaluator subagent PASS)
 - [x] [Implementation] Step 20: Responsive Multi-Book Now Reading Lounge - Enhanced top reading lounge to dynamically display up to 3 distinct recent books, adapting gracefully across desktop (3 columns), tablet (2 columns), and mobile (1 column) without duplicating books in the secondary reading shelf (Evaluator subagent PASS)
+- [x] [Debugging] Step 21: Out-of-Print Novel Discovery & Exact ISBN Lookup Resolution - Resolved root cause where ISBN queries were rejected by title-string match filters, bypassed relevance checks for 10/13-digit ISBNs, expanded search target to include Aladin eBook to discover out-of-print original novels (e.g. 나와 호랑이님 1권 / 카넬, 영인), and prioritized Aladin ISBN lookup to prevent Google Books 429 quota failures (Evaluator subagent PASS)
 
 ## In progress
 
@@ -32,8 +33,8 @@
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
-- 19/19 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 20 items (multi-card lounge backend aggregation, responsive grid adaptability) and confirmed PASS.
+- 20/20 automated tests passed in `_testcode/specs/` (including `test_enricher.py` and `test_ui_ux.py`).
+- Evaluator subagent verified Step 21 items (ISBN regex detection, title/volume filter bypass, Aladin eBook target expansion) and confirmed PASS.
 
 
 
