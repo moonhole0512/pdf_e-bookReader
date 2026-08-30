@@ -86,3 +86,30 @@ class ReadingState(db.Model):
 
     def __repr__(self):
         return f'<ReadingState User:{self.user_id} File:{self.file_id} Page:{self.current_page}>'
+
+class PageEdit(db.Model):
+    __tablename__ = 'page_edit'
+    id = Column(Integer, primary_key=True)
+    file_id = Column(Integer, ForeignKey('file.id'), nullable=False, index=True)
+    page_num = Column(Integer, nullable=False) # 1-based target page number
+    action = Column(String(20), nullable=False) # 'replace', 'delete', 'insert_before', 'insert_after'
+    image_path = Column(String(1024), nullable=True) # relative path to instance/overrides/...
+    created_at = Column(DateTime, default=func.now())
+
+    file = relationship('File', backref=db.backref('page_edits', cascade='all, delete-orphan', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'file_id': self.file_id,
+            'page_num': self.page_num,
+            'action': self.action,
+            'image_path': self.image_path,
+            'has_image': bool(self.image_path),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'book_title': self.file.book.title if self.file and self.file.book else '',
+            'volume_number': self.file.volume_number if self.file else 1
+        }
+
+    def __repr__(self):
+        return f'<PageEdit File:{self.file_id} Page:{self.page_num} Action:{self.action}>'

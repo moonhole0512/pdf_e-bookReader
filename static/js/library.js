@@ -1051,5 +1051,245 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedViewMode === 'list') {
             setLibraryViewMode('list');
         }
+
+        // --- Hybrid Page Management (Client-Side PDF Manipulation & Batch Commit) ---
+        const pendingEditsBtn = document.getElementById('pending-edits-btn');
+        const pendingEditsLabel = document.getElementById('pending-edits-label');
+        const pendingEditsModal = document.getElementById('pending-edits-modal');
+        const pendingEditsCloseIcon = document.getElementById('pending-edits-close-icon');
+        const pendingEditsCloseBtn = document.getElementById('pending-edits-close-btn');
+        const pendingEditsList = document.getElementById('pending-edits-list');
+        const commitAllEditsBtn = document.getElementById('commit-all-edits-btn');
+        const commitProgressContainer = document.getElementById('commit-progress-container');
+        const commitProgressBar = document.getElementById('commit-progress-bar');
+        const commitProgressStatus = document.getElementById('commit-progress-status');
+
+        let currentPendingEdits = [];
+
+        async function loadPendingEditsBadge() {
+            try {
+                const resp = await fetch('/api/page/pending_edits');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    currentPendingEdits = data.edits || [];
+                    const count = data.total_count || 0;
+                    if (pendingEditsBtn && pendingEditsLabel) {
+                        if (count > 0) {
+                            pendingEditsLabel.textContent = `편집 대기 ${count}건`;
+                            pendingEditsBtn.classList.remove('hidden');
+                        } else {
+                            pendingEditsBtn.classList.add('hidden');
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load pending page edits:', e);
+            }
+        }
+
+        function renderPendingEditsModal() {
+            if (!pendingEditsList) return;
+            pendingEditsList.innerHTML = '';
+
+            if (currentPendingEdits.length === 0) {
+                pendingEditsList.innerHTML = '<p style="color: #8e95a5; text-align: center; padding: 20px;">대기 중인 편집 건이 없습니다.</p>';
+                if (commitAllEditsBtn) commitAllEditsBtn.disabled = true;
+                return;
+            }
+
+            if (commitAllEditsBtn) commitAllEditsBtn.disabled = false;
+
+            currentPendingEdits.forEach(edit => {
+                const item = document.createElement('div');
+                item.className = 'pending-edit-item';
+                
+                const isReplace = edit.action === 'replace';
+                const actionText = isReplace ? '이미지 교체' : '페이지 삭제';
+                const badgeClass = isReplace ? 'badge-replace' : 'badge-delete';
+
+                item.innerHTML = `
+                    <div class="pending-edit-item-left">
+                        <span class="pending-edit-action-badge ${badgeClass}">${actionText}</span>
+                        <div class="pending-edit-meta">
+                            <span class="pending-edit-title">${escapeHtml(edit.book_title || '도서')} (제${edit.volume_number || 1}권)</span>
+                            <span class="pending-edit-page">대상: 원본 ${edit.page_num}페이지</span>
+                        </div>
+                    </div>
+                    <button type="button" class="pending-edit-cancel-btn" data-edit-id="${edit.id}">취소</button>
+                `;
+
+                const cancelBtn = item.querySelector('.pending-edit-cancel-btn');
+                cancelBtn.addEventListener('click', async () => {
+                    cancelBtn.disabled = true;
+                    cancelBtn.textContent = '취소 중...';
+                    try {
+                        const resp = await fetch(`/api/page/edit/${edit.id}/cancel`, { method: 'POST' });
+                        if (resp.ok) {
+                            showToast('편집이 취소되었습니다.');
+                            await loadPendingEditsBadge();
+                            renderPendingEditsModal();
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showToast('취소 처리에 실패했습니다.');
+                    }
+                });
+
+                pendingEditsList.appendChild(item);
+            });
+        }
+
+        if (pendingEditsBtn) {
+            pendingEditsBtn.addEventListener('click', () => {
+                renderPendingEditsModal();
+                if (pendingEditsModal) pendingEditsModal.classList.remove('hidden');
+            });
+        }
+
+        const closePendingModal = () => {
+            if (pendingEditsModal) pendingEditsModal.classList.add('hidden');
+        };
+
+        if (pendingEditsCloseIcon) pendingEditsCloseIcon.addEventListener('click', closePendingModal);
+        if (pendingEditsCloseBtn) pendingEditsCloseBtn.addEventListener('click', closePendingModal);
+        if (pendingEditsModal) {
+            pendingEditsModal.addEventListener('click', (e) => {
+                if (e.target === pendingEditsModal) closePendingModal();
+            });
+        }
+
+        // Client-Side PDF Batch Commit via pdf-lib
+        if (commitAllEditsBtn) {
+            commitAllEditsBtn.addEventListener('click', async () => {
+                if (currentPendingEdits.length === 0) return;
+                if (typeof PDFLib === 'undefined') {
+                    showToast('PDF 처리 라이브러리를 로드하는 중입니다. 잠시 후 다시 시도해 주세요.');
+                    return;
+                }
+
+                if (!confirm(`총 ${currentPendingEdits.length}건의 편집을 현재 기기(브라우저)에서 원본 PDF로 영구 병합하시겠습니까?\n(NAS 메모리 부하 없이 안전하게 수행됩니다)`)) {
+                    return;
+                }
+
+                commitAllEditsBtn.disabled = true;
+                if (commitProgressContainer) commitProgressContainer.classList.remove('hidden');
+                if (commitProgressBar) commitProgressBar.style.width = '5%';
+                if (commitProgressStatus) commitProgressStatus.textContent = '편집 작업을 도서별로 분석 중...';
+
+                const editsByFile = {};
+                currentPendingEdits.forEach(e => {
+                    if (!editsByFile[e.file_id]) editsByFile[e.file_id] = [];
+                    editsByFile[e.file_id].push(e);
+                });
+
+                const fileIds = Object.keys(editsByFile);
+                let processedFiles = 0;
+
+                try {
+                    for (const fileIdStr of fileIds) {
+                        const fid = parseInt(fileIdStr, 10);
+                        const fileEdits = editsByFile[fid];
+                        const bookName = fileEdits[0].book_title || `도서 #${fid}`;
+
+                        if (commitProgressStatus) {
+                            commitProgressStatus.textContent = `[${processedFiles + 1}/${fileIds.length}] '${bookName}' PDF 다운로드 중...`;
+                        }
+                        if (commitProgressBar) {
+                            const pct = Math.floor((processedFiles / fileIds.length) * 80) + 10;
+                            commitProgressBar.style.width = `${pct}%`;
+                        }
+
+                        const pdfResp = await fetch(`/reader/${fid}`);
+                        if (!pdfResp.ok) throw new Error(`PDF 접근 실패 (ID: ${fid})`);
+                        const htmlText = await pdfResp.text();
+                        
+                        const match = htmlText.match(/pdfUrl\s*=\s*['"]([^'"]+)['"]/);
+                        if (!match) throw new Error('PDF 다운로드 주소를 찾을 수 없습니다.');
+                        const pdfFetchUrl = match[1];
+
+                        const pdfDataResp = await fetch(pdfFetchUrl);
+                        if (!pdfDataResp.ok) throw new Error('PDF 바이너리 다운로드 실패');
+                        const origPdfBytes = await pdfDataResp.arrayBuffer();
+
+                        if (commitProgressStatus) {
+                            commitProgressStatus.textContent = `[${processedFiles + 1}/${fileIds.length}] '${bookName}' 브라우저(PC)에서 페이지 재구성 중...`;
+                        }
+
+                        const pdfDoc = await PDFLib.PDFDocument.load(origPdfBytes);
+
+                        const deleteEdits = fileEdits.filter(e => e.action === 'delete').sort((a, b) => b.page_num - a.page_num);
+                        const replaceEdits = fileEdits.filter(e => e.action === 'replace');
+
+                        for (const rep of replaceEdits) {
+                            const pageIndex = rep.page_num - 1;
+                            if (pageIndex >= 0 && pageIndex < pdfDoc.getPageCount()) {
+                                const imgResp = await fetch(`/api/page/override_image/${rep.id}`);
+                                if (imgResp.ok) {
+                                    const imgBlob = await imgResp.blob();
+                                    const imgBytes = await imgBlob.arrayBuffer();
+                                    const isPng = imgBlob.type === 'image/png';
+                                    const embeddedImage = isPng ? await pdfDoc.embedPng(imgBytes) : await pdfDoc.embedJpg(imgBytes);
+
+                                    const newPage = pdfDoc.insertPage(pageIndex, [embeddedImage.width, embeddedImage.height]);
+                                    newPage.drawImage(embeddedImage, {
+                                        x: 0,
+                                        y: 0,
+                                        width: embeddedImage.width,
+                                        height: embeddedImage.height
+                                    });
+                                    pdfDoc.removePage(pageIndex + 1);
+                                }
+                            }
+                        }
+
+                        for (const del of deleteEdits) {
+                            const pageIndex = del.page_num - 1;
+                            if (pageIndex >= 0 && pageIndex < pdfDoc.getPageCount()) {
+                                pdfDoc.removePage(pageIndex);
+                            }
+                        }
+
+                        if (commitProgressStatus) {
+                            commitProgressStatus.textContent = `[${processedFiles + 1}/${fileIds.length}] '${bookName}' 최종 PDF 저장 및 NAS 전송 중...`;
+                        }
+                        const modifiedPdfBytes = await pdfDoc.save();
+
+                        const formData = new FormData();
+                        formData.append('file_id', fid);
+                        formData.append('pdf', new Blob([modifiedPdfBytes], { type: 'application/pdf' }), 'merged.pdf');
+
+                        const uploadResp = await fetch('/api/file/replace_pdf', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const uploadResult = await uploadResp.json();
+                        if (!uploadResult.success) {
+                            throw new Error(uploadResult.message || 'PDF 저장 실패');
+                        }
+
+                        processedFiles++;
+                    }
+
+                    if (commitProgressBar) commitProgressBar.style.width = '100%';
+                    if (commitProgressStatus) commitProgressStatus.textContent = '모든 도서의 영구 병합이 완료되었습니다! ✓';
+                    showToast('모든 도서의 영구 저장이 완료되었습니다! ✓');
+
+                    setTimeout(async () => {
+                        closePendingModal();
+                        await loadPendingEditsBadge();
+                        window.location.reload();
+                    }, 1200);
+
+                } catch (error) {
+                    console.error('Commit edits failed:', error);
+                    alert(`영구 병합 중 오류가 발생했습니다: ${error.message}`);
+                    commitAllEditsBtn.disabled = false;
+                    if (commitProgressContainer) commitProgressContainer.classList.add('hidden');
+                }
+            });
+        }
+
+        // Check pending edits on page load
+        loadPendingEditsBadge();
     }
 });

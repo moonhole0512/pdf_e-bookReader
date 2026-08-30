@@ -209,7 +209,33 @@
             </svg>
             새 탭에서 보기
         </button>
+        <div class="image-action-divider"></div>
+        <button id="img-action-replace" class="image-action-item" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            이 페이지 이미지 교체
+        </button>
+        <button id="img-action-delete" class="image-action-item action-item-danger" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            이 페이지 삭제
+        </button>
+        <button id="img-action-cancel-edit" class="image-action-item hidden" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </svg>
+            편집 취소 (원상 복구)
+        </button>
     </div>
+
+    <!-- Hidden File Input for Page Replacement -->
+    <input type="file" id="page-replace-file-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
     <!-- Reader Toast Notification -->
     <div id="reader-toast" class="reader-toast hidden" role="status" aria-live="polite"></div>

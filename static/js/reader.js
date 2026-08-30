@@ -39,12 +39,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const imgActionCopyBtn = document.getElementById('img-action-copy');
     const imgActionSaveBtn = document.getElementById('img-action-save');
     const imgActionOpenBtn = document.getElementById('img-action-open');
+    const imgActionReplaceBtn = document.getElementById('img-action-replace');
+    const imgActionDeleteBtn = document.getElementById('img-action-delete');
+    const imgActionCancelEditBtn = document.getElementById('img-action-cancel-edit');
+    const pageReplaceFileInput = document.getElementById('page-replace-file-input');
     const readerToast = document.getElementById('reader-toast');
     let activeCanvas = null;
     let activePageNum = null;
+    let activeOriginalPage = null;
+    let activeEditId = null;
     let toastTimeout = null;
     let longPressTimer = null;
     let longPressTriggered = false;
+
+    // Virtual Page State (Hybrid Zero-Server-Load Architecture)
+    let stagedEdits = [];
+    let virtualPageMap = [];
+    const getTotalPages = () => (virtualPageMap && virtualPageMap.length > 0) ? virtualPageMap.length : (pdfDoc ? pdfDoc.numPages : 1);
 
     // UI Elements
     const settingsModalOverlay = document.getElementById('settings-modal-overlay');
@@ -157,10 +168,125 @@ document.addEventListener('DOMContentLoaded', () => {
         applyColorFilters();
     }
 
+    // --- Hybrid Virtual Page Map System ---
+    function buildVirtualPageMap() {
+        if (!pdfDoc) return;
+        const totalOrig = pdfDoc.numPages;
+        const editsByPage = {};
+        stagedEdits.forEach(e => {
+            editsByPage[e.page_num] = e;
+        });
+
+        virtualPageMap = [];
+        for (let p = 1; p <= totalOrig; p++) {
+            const edit = editsByPage[p];
+            if (edit && edit.action === 'delete') {
+                continue; // Virtual delete: omit from display sequence
+            } else if (edit && edit.action === 'replace') {
+                virtualPageMap.push({
+                    type: 'override',
+                    originalPage: p,
+                    edit: edit
+                });
+            } else {
+                virtualPageMap.push({
+                    type: 'pdf',
+                    originalPage: p,
+                    edit: null
+                });
+            }
+        }
+
+        const vCount = virtualPageMap.length;
+        pageCountSpan.textContent = vCount;
+        if (pageNum > vCount && vCount > 0) {
+            pageNum = vCount;
+        }
+    }
+
+    async function fetchAndApplyPageEdits(reRender = false) {
+        try {
+            const resp = await fetch(`/api/page/edits/${fileId}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                stagedEdits = data.edits || [];
+                buildVirtualPageMap();
+                if (reRender) {
+                    renderQueue(pageNum);
+                    updateScrubberUI();
+                    updatePageNumUI();
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to fetch page edits:', e);
+        }
+    }
+
     // --- Core Rendering Functions ---
-    function renderPage(num, canvas) {
+    function renderPage(vNum, canvas) {
         pageRendering = true;
-        return pdfDoc.getPage(num).then(page => {
+        if (!pdfDoc) {
+            pageRendering = false;
+            return Promise.resolve();
+        }
+
+        // Fallback to original page if virtualPageMap is not yet built
+        const vInfo = (virtualPageMap && virtualPageMap.length >= vNum) 
+            ? virtualPageMap[vNum - 1] 
+            : { type: 'pdf', originalPage: vNum, edit: null };
+
+        const origPageNum = vInfo.originalPage;
+        canvas.dataset.virtualPage = vNum;
+        canvas.dataset.originalPage = origPageNum;
+        if (vInfo.edit) {
+            canvas.dataset.editId = vInfo.edit.id;
+        } else {
+            delete canvas.dataset.editId;
+        }
+
+        // 1. If this is a staged image replacement, load and draw high-res override
+        if (vInfo.type === 'override' && vInfo.edit) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let currentScale = scale;
+                    if (fitMode !== 'custom') {
+                        const availableWidth = Math.max(100, container.clientWidth - 20);
+                        const availableHeight = Math.max(100, container.clientHeight - 20);
+                        if (fitMode === 'width') {
+                            const targetWidth = (viewMode !== 'one') ? (availableWidth / 2) : availableWidth;
+                            currentScale = targetWidth / img.naturalWidth;
+                        } else if (fitMode === 'height') {
+                            currentScale = availableHeight / img.naturalHeight;
+                        }
+                    }
+                    lastRenderedScale = currentScale;
+                    canvas.height = img.naturalHeight * currentScale;
+                    canvas.width = img.naturalWidth * currentScale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    applyColorFilters();
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        const pending = pageNumPending;
+                        pageNumPending = null;
+                        renderQueue(pending);
+                    }
+                    resolve();
+                };
+                img.onerror = () => {
+                    renderOriginalPdfPage(origPageNum, canvas).then(resolve);
+                };
+                img.src = `/api/page/override_image/${vInfo.edit.id}?t=${Date.now()}`;
+            });
+        }
+
+        // 2. Standard PDF Page Render
+        return renderOriginalPdfPage(origPageNum, canvas);
+    }
+
+    function renderOriginalPdfPage(origPageNum, canvas) {
+        return pdfDoc.getPage(origPageNum).then(page => {
             let currentScale = scale;
             if (fitMode !== 'custom') {
                 const unscaledViewport = page.getViewport({ scale: 1 });
@@ -179,10 +305,12 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.width = viewport.width;
             const renderContext = { canvasContext: canvas.getContext('2d'), viewport: viewport };
             return page.render(renderContext).promise.then(() => {
+                applyColorFilters();
                 pageRendering = false;
                 if (pageNumPending !== null) {
-                    renderQueue(pageNumPending);
+                    const pending = pageNumPending;
                     pageNumPending = null;
+                    renderQueue(pending);
                 }
             });
         });
@@ -690,13 +818,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!imageActionMenu || !target) return;
         activeCanvas = target.canvas;
         activePageNum = target.pageNum;
+        activeOriginalPage = target.canvas.dataset.originalPage ? parseInt(target.canvas.dataset.originalPage, 10) : activePageNum;
+        activeEditId = target.canvas.dataset.editId ? parseInt(target.canvas.dataset.editId, 10) : null;
 
         if (imageActionPageLabel) {
-            imageActionPageLabel.textContent = `p. ${activePageNum} 이미지`;
+            imageActionPageLabel.textContent = `p. ${activePageNum} (원본: ${activeOriginalPage}p)`;
         }
 
-        const menuWidth = 175;
-        const menuHeight = 140;
+        if (imgActionCancelEditBtn) {
+            if (activeEditId) {
+                imgActionCancelEditBtn.classList.remove('hidden');
+            } else {
+                imgActionCancelEditBtn.classList.add('hidden');
+            }
+        }
+
+        const menuWidth = 195;
+        const menuHeight = 220;
         const posX = Math.min(Math.max(10, x), window.innerWidth - menuWidth - 10);
         const posY = Math.min(Math.max(10, y), window.innerHeight - menuHeight - 10);
 
@@ -771,6 +909,115 @@ document.addEventListener('DOMContentLoaded', () => {
                 const url = URL.createObjectURL(blob);
                 window.open(url, '_blank');
             }, 'image/png');
+        });
+    }
+
+    // Replace Page Button Click -> Trigger file input
+    if (imgActionReplaceBtn) {
+        imgActionReplaceBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeImageMenu();
+            if (pageReplaceFileInput) {
+                pageReplaceFileInput.value = '';
+                pageReplaceFileInput.click();
+            }
+        });
+    }
+
+    // File Selected for Page Replacement
+    if (pageReplaceFileInput) {
+        pageReplaceFileInput.addEventListener('change', async (e) => {
+            if (!e.target.files || e.target.files.length === 0) return;
+            const file = e.target.files[0];
+            const origP = activeOriginalPage || pageNum;
+
+            const formData = new FormData();
+            formData.append('file_id', fileId);
+            formData.append('page_num', origP);
+            formData.append('action', 'replace');
+            formData.append('image', file);
+
+            showReaderToast('페이지 교체 중...');
+
+            try {
+                const resp = await fetch('/api/page/edit', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showReaderToast('페이지 이미지가 성공적으로 교체되었습니다! ✓');
+                    await fetchAndApplyPageEdits(true);
+                } else {
+                    showReaderToast(result.message || '페이지 교체 실패');
+                }
+            } catch (err) {
+                console.error(err);
+                showReaderToast('네트워크 오류로 교체에 실패했습니다.');
+            }
+        });
+    }
+
+    // Delete Page Button Click
+    if (imgActionDeleteBtn) {
+        imgActionDeleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            closeImageMenu();
+            const origP = activeOriginalPage || pageNum;
+
+            if (!confirm(`현재 페이지(원본 ${origP}p)를 삭제하시겠습니까?\n(영구 병합 전까지 언제든 되돌릴 수 있습니다)`)) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file_id', fileId);
+            formData.append('page_num', origP);
+            formData.append('action', 'delete');
+
+            showReaderToast('페이지 삭제 중...');
+
+            try {
+                const resp = await fetch('/api/page/edit', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showReaderToast('페이지가 성공적으로 삭제되었습니다! ✓');
+                    await fetchAndApplyPageEdits(true);
+                } else {
+                    showReaderToast(result.message || '페이지 삭제 실패');
+                }
+            } catch (err) {
+                console.error(err);
+                showReaderToast('네트워크 오류로 삭제에 실패했습니다.');
+            }
+        });
+    }
+
+    // Cancel / Rollback Edit Button Click
+    if (imgActionCancelEditBtn) {
+        imgActionCancelEditBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            closeImageMenu();
+            if (!activeEditId) return;
+
+            showReaderToast('편집 취소 중...');
+            try {
+                const resp = await fetch(`/api/page/edit/${activeEditId}/cancel`, {
+                    method: 'POST'
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showReaderToast('편집이 취소되고 원본으로 복구되었습니다! ✓');
+                    await fetchAndApplyPageEdits(true);
+                } else {
+                    showReaderToast('취소에 실패했습니다.');
+                }
+            } catch (err) {
+                console.error(err);
+                showReaderToast('네트워크 오류로 취소에 실패했습니다.');
+            }
         });
     }
 
@@ -896,11 +1143,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial Load ---
     const loaderOverlay = document.getElementById('loader-overlay');
-    pdfjsLib.getDocument(pdfUrl).promise.then(doc => {
+    pdfjsLib.getDocument(pdfUrl).promise.then(async (doc) => {
         pdfDoc = doc;
         pageCountSpan.textContent = pdfDoc.numPages;
+        await fetchAndApplyPageEdits(false);
         renderQueue(pageNum);
         updateScrubberUI();
+        updatePageNumUI();
     }).finally(() => {
         setTimeout(() => { 
             loaderOverlay.classList.add('hidden');

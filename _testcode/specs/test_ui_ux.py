@@ -597,5 +597,66 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('showReaderToast(', js)
         self.assertIn('longPressTimer', js)
 
+    def test_hybrid_page_management_virtual_staging_and_client_commit(self):
+        """Verify hybrid page management: virtual staging in reader and client-side pdf-lib commit."""
+        from models import PageEdit
+        import inspect
+
+        # 1. Model inspection
+        self.assertTrue(hasattr(PageEdit, 'file_id'))
+        self.assertTrue(hasattr(PageEdit, 'page_num'))
+        self.assertTrue(hasattr(PageEdit, 'action'))
+        self.assertTrue(hasattr(PageEdit, 'image_path'))
+        self.assertTrue(hasattr(PageEdit, 'to_dict'))
+
+        # 2. Template verification
+        with open('templates/reader.html', 'r', encoding='utf-8') as f:
+            reader_html = f.read()
+        self.assertIn('id="img-action-replace"', reader_html)
+        self.assertIn('id="img-action-delete"', reader_html)
+        self.assertIn('id="img-action-cancel-edit"', reader_html)
+        self.assertIn('id="page-replace-file-input"', reader_html)
+
+        with open('templates/index.html', 'r', encoding='utf-8') as f:
+            index_html = f.read()
+        self.assertIn('pdf-lib.min.js', index_html)
+        self.assertIn('id="pending-edits-btn"', index_html)
+        self.assertIn('id="pending-edits-modal"', index_html)
+        self.assertIn('id="commit-all-edits-btn"', index_html)
+
+        # 3. CSS verification
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        self.assertIn('.pending-edits-btn {', css)
+        self.assertIn('.pending-edits-card {', css)
+        self.assertIn('.commit-all-edits-btn {', css)
+        self.assertIn('.image-action-divider {', css)
+
+        # 4. Reader JS virtual map & override rendering verification
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            reader_js = f.read()
+        self.assertIn('buildVirtualPageMap', reader_js)
+        self.assertIn('fetchAndApplyPageEdits', reader_js)
+        self.assertIn('/api/page/override_image/', reader_js)
+        self.assertIn('imgActionReplaceBtn', reader_js)
+        self.assertIn('imgActionDeleteBtn', reader_js)
+
+        # 5. Library JS client-side pdf-lib commit verification
+        with open('static/js/library.js', 'r', encoding='utf-8') as f:
+            lib_js = f.read()
+        self.assertIn('/api/page/pending_edits', lib_js)
+        self.assertIn('PDFLib.PDFDocument.load', lib_js)
+        self.assertIn('/api/file/replace_pdf', lib_js)
+
+        # 6. Backend API response check
+        user = User.query.filter_by(username="Gruzam").first()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+        resp = self.client.get('/api/page/pending_edits')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data.get('success'))
+        self.assertIn('total_count', data)
+
 if __name__ == '__main__':
     unittest.main()

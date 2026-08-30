@@ -3114,6 +3114,21 @@ header nav a:hover {
     color: #4da3ff;
 }
 
+.image-action-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 4px 6px;
+}
+
+.image-action-item.action-item-danger:hover {
+    background: rgba(255, 69, 58, 0.18);
+    color: #ff453a;
+}
+
+.image-action-item.action-item-danger:hover svg {
+    color: #ff453a;
+}
+
 /* --- Reader Floating Toast Notification --- */
 .reader-toast {
     position: fixed;
@@ -3149,4 +3164,199 @@ header nav a:hover {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
     }
+}
+
+/* --- Pending Page Edits Batch Commit Modal (Hybrid Client-Side Offloading) --- */
+.pending-edits-btn {
+    background: rgba(255, 159, 10, 0.18) !important;
+    border: 1px solid rgba(255, 159, 10, 0.4) !important;
+    color: #ffb340 !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.pending-edits-btn:hover {
+    background: rgba(255, 159, 10, 0.3) !important;
+    border-color: rgba(255, 159, 10, 0.7) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 159, 10, 0.3);
+}
+
+.pending-edits-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff9f0a;
+    box-shadow: 0 0 8px #ff9f0a;
+    animation: pendingPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes pendingPulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.35); opacity: 1; }
+}
+
+.pending-edits-card {
+    max-width: 600px !important;
+    width: 92% !important;
+}
+
+.pending-edits-info {
+    font-size: 0.88rem;
+    color: #a0a6b5;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 12px 14px;
+    border-radius: 10px;
+    border-left: 3px solid #ff9f0a;
+}
+
+.pending-edits-info strong {
+    color: #4da3ff;
+}
+
+.pending-edits-list {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-right: 4px;
+}
+
+.pending-edit-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    transition: background 0.15s ease;
+}
+
+.pending-edit-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.pending-edit-item-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pending-edit-action-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pending-edit-action-badge.badge-replace {
+    background: rgba(10, 132, 255, 0.2);
+    color: #4da3ff;
+    border: 1px solid rgba(10, 132, 255, 0.35);
+}
+
+.pending-edit-action-badge.badge-delete {
+    background: rgba(255, 69, 58, 0.2);
+    color: #ff453a;
+    border: 1px solid rgba(255, 69, 58, 0.35);
+}
+
+.pending-edit-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pending-edit-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #f0f3f8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pending-edit-page {
+    font-size: 0.78rem;
+    color: #8e95a5;
+}
+
+.pending-edit-cancel-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #a0a6b5;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.pending-edit-cancel-btn:hover {
+    background: rgba(255, 69, 58, 0.2);
+    border-color: rgba(255, 69, 58, 0.5);
+    color: #ff453a;
+}
+
+.commit-all-edits-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%);
+    border: none;
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
+}
+
+.commit-all-edits-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(10, 132, 255, 0.45);
+}
+
+.commit-all-edits-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.commit-progress-container {
+    margin-bottom: 16px;
+}
+
+.commit-progress-bar-wrapper {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.commit-progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #ff9f0a, #30d158);
+    transition: width 0.3s ease;
+}
+
+.commit-progress-status {
+    font-size: 0.82rem;
+    color: #8e95a5;
+    margin-top: 6px;
+    text-align: center;
 }
