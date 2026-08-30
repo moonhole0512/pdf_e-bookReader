@@ -8,28 +8,33 @@
              data-volumes='{{ group.files | tojson }}'
              data-series-title="{{ group.book.title }}">
             
-            <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ group.book.title }}">
-            
-            {% if group.volume_count > 1 %}
-            <div class="volume-badge">{{ group.volume_count }}권</div>
-            {% endif %}
+            <div class="book-cover-container">
+                <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ group.book.title }}" loading="lazy">
+                <div class="book-spine-crease"></div>
+                
+                {% if group.volume_count > 1 %}
+                <div class="volume-badge">{{ group.volume_count }}권</div>
+                {% endif %}
 
-            {% if group.status == 'completed' %}
-            <div class="completed-badge">완독 🏆</div>
-            {% elif group.status == 'reading' %}
-            <div class="reading-badge">읽는 중</div>
-            {% endif %}
+                {% if group.status == 'completed' %}
+                <div class="completed-badge">완독 🏆</div>
+                {% elif group.status == 'reading' %}
+                <div class="reading-badge">읽는 중</div>
+                {% endif %}
+
+                {% if group.volume_count == 1 %}
+                <button class="isbn-btn" 
+                        data-file-id="{{ group.files[0].id }}" 
+                        data-book-title="{{ group.book.title }}" 
+                        data-volume-number="{{ group.files[0].volume_number }}"
+                        title="도서 정보 및 표지 검색">ISBN</button>
+                {% endif %}
+            </div>
 
             <div class="book-info">
                 <h3>{{ group.book.title }}</h3>
                 <p>{{ group.cover_file.author or group.book.author }}</p>
             </div>
-            {% if group.volume_count == 1 %}
-            <button class="isbn-btn" 
-                    data-file-id="{{ group.files[0].id }}" 
-                    data-book-title="{{ group.book.title }}" 
-                    data-volume-number="{{ group.files[0].volume_number }}">ISBN</button>
-            {% endif %}
         </div>
     {% endfor %}
 </div>

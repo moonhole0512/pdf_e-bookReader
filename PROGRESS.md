@@ -19,6 +19,8 @@
 - [x] [Implementation] Step 15: Phase 3 - Psychological Motivation & Discovery (Unread discovery banner, "오늘 뭐 읽지?" shuffle picker modal & gold completion badges)
 - [x] [Implementation] Step 16: Phase 4 - Multi-Device Mastery (Mobile floating bottom tab bar with iOS safe-area support, tablet responsive tuning & desktop keyboard shortcuts)
 
+- [x] [Implementation] Step 17: Premium E-Reader Layout & Atmosphere Overhaul - Now Reading Lounge hero with ambient glow, 3D paperback book cover with spine crease overlay, collision-free stacked badges, glassmorphic hover-reveal ISBN button, and non-destructive library filter chips (Evaluator subagent PASS)
+
 ## In progress
 
 ## Next
@@ -28,7 +30,7 @@
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
 - 17/17 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified all Phase 1-4 UI/UX and Reading Motivation criteria and confirmed PASS.
+- Evaluator subagent verified all Step 17 items (glassmorphic hover reveal, badge collision offset, reading lounge) and confirmed PASS.
 
 
 

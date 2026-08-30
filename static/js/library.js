@@ -780,5 +780,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.target === shuffleModal) shuffleModal.classList.add('hidden');
             });
         }
+
+        // --- Bookshelf Filter Chips (All / Reading / Unread / Completed) ---
+        const filterChips = document.querySelectorAll('.shelf-filter-chips .filter-chip');
+        if (filterChips.length > 0) {
+            filterChips.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const filter = chip.dataset.filter;
+                    filterChips.forEach(c => c.classList.toggle('active', c === chip));
+
+                    const bookCards = document.querySelectorAll('.all-books-shelf .book-card');
+                    bookCards.forEach(card => {
+                        if (filter === 'all') {
+                            card.style.display = '';
+                        } else if (filter === 'reading') {
+                            card.style.display = (card.dataset.status === 'reading') ? '' : 'none';
+                        } else if (filter === 'unread') {
+                            card.style.display = (card.dataset.status === 'unread') ? '' : 'none';
+                        } else if (filter === 'completed') {
+                            card.style.display = (card.dataset.status === 'completed') ? '' : 'none';
+                        }
+                    });
+                });
+            });
+        }
     }
 });
