@@ -203,5 +203,22 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('reading-lounge-section', html_page2)
         self.assertIn('all-books-section', html_page2)
 
+    def test_reader_controls_smooth_in_place_fade_transition(self):
+        """Verify reader scrubber and page-indicator fade in-place without horizontal distortion."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. #reader-scrubber-container.reader-controls-hidden MUST retain translateX(-50%)
+        # so it stays centered and does NOT jump sideways when fading
+        self.assertIn('#reader-scrubber-container.reader-controls-hidden', css)
+        scrubber_hidden_block = css[css.index('#reader-scrubber-container.reader-controls-hidden'):css.index('#reader-scrubber-container.reader-controls-hidden') + 200]
+        self.assertIn('translateX(-50%)', scrubber_hidden_block)
+
+        # 2. #page-indicator.reader-controls-hidden MUST NOT have translateX
+        # so it stays anchored at top-left without jumping sideways
+        page_ind_block = css[css.index('#page-indicator.reader-controls-hidden'):css.index('#page-indicator.reader-controls-hidden') + 200]
+        self.assertNotIn('translateX', page_ind_block)
+        self.assertIn('translateY', page_ind_block)
+
 if __name__ == '__main__':
     unittest.main()
