@@ -1247,93 +1247,68 @@ header nav a:hover {
     pointer-events: none;
 }
 
-/* Floating Controls (Bottom-Right) */
-#floating-controls {
+/* --- Apple-Style Glass Floating Controls (ponytail: Modern Pill Dock) --- */
+#floating-controls.reader-floating-dock {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 24px;
+    right: 24px;
     z-index: 100;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    transform: translateY(0);
-    transition: right 0.3s ease-in-out, opacity 0.25s cubic-bezier(0.25, 1, 0.5, 1), transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-/* Hide mobile toggle on desktop */
-@media (min-width: 481px) {
-    #fab-toggle-btn {
-        display: none;
-    }
-}
-
-.fab {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background-color: #3a3a3a;
-    border: 1px solid #555;
-    color: white;
-    font-size: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    cursor: pointer;
-    opacity: 0.5;
-    transition: all 0.3s;
-    display: flex;
-    justify-content: center;
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
-    text-decoration: none;
+    gap: 4px;
+    padding: 5px 8px;
+    background: rgba(18, 20, 26, 0.82);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.25s cubic-bezier(0.25, 1, 0.5, 1), transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.fab:hover {
-    opacity: 1;
-    transform: scale(1.05);
+#floating-controls.reader-controls-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
 }
 
-/* Settings Icon (Gear) */
-.icon-gear {
+.dock-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
     background: transparent;
     border: none;
-    font-family: 'Arial Unicode MS', 'Lucida Sans Unicode', 'sans-serif';
-    transition: transform 0.3s;
-}
-.icon-gear::before {
-    content: '\2699';
-    font-size: 22px;
-    color: white;
-    line-height: 1;
-}
-
-/* List Icon */
-.icon-list {
-    width: 20px;
-    height: 16px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.icon-list div {
-    width: 100%;
-    height: 2px;
-    background: white;
-    border-radius: 2px;
-}
-
-/* Ellipsis Icon */
-.icon-ellipsis {
-    width: 20px;
-    height: 16px;
+    color: #e5e5ea;
     display: flex;
     align-items: center;
-    justify-content: space-around;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.icon-ellipsis div {
-    width: 4px;
-    height: 4px;
-    background: white;
-    border-radius: 50%;
+.dock-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    transform: scale(1.06);
+}
+
+.dock-btn:active {
+    background: rgba(10, 132, 255, 0.25);
+    color: #0a84ff;
+    transform: scale(0.95);
+}
+
+.dock-btn svg {
+    display: block;
+}
+
+.dock-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 2px;
 }
 
 .settings-section {
@@ -1491,62 +1466,23 @@ header nav a:hover {
     background: white;
 }
 
-/* --- Mobile FAB Menu --- */
+/* --- Mobile Reader Floating Dock --- */
 @media (max-width: 480px) {
-    /* On mobile, show the toggle button, but keep others in the DOM for transitions */
-    #fab-toggle-btn {
-        display: flex;
+    #floating-controls.reader-floating-dock {
+        bottom: 16px;
+        right: 16px;
+        padding: 4px 6px;
+        gap: 2px;
+        border-radius: 20px;
     }
 
-    /* Undo desktop layout changes and set container size */
-    #floating-controls {
-        display: block;
-        width: 44px;
-        height: 44px;
-        gap: 0;
+    .dock-btn {
+        width: 32px;
+        height: 32px;
     }
 
-    /* Position all FABs in the same spot */
-    #floating-controls .fab {
-        position: absolute;
-        bottom: 0;
-        right: 0;
-    }
-
-    /* Hide the 4 functional buttons initially */
-    #floating-controls .fab:not(#fab-toggle-btn) {
-        opacity: 0;
-        transform: scale(0.5);
-        pointer-events: none;
-        transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    /* When expanded, show the functional buttons */
-    #floating-controls.fabs-expanded .fab:not(#fab-toggle-btn) {
-        opacity: 1;
-        pointer-events: auto;
-    }
-
-    /* Position the expanded buttons */
-    #floating-controls.fabs-expanded #settings-btn {
-        transform: translateY(-52px) scale(1);
-    }
-    #floating-controls.fabs-expanded #zoom-in {
-        transform: translateY(-104px) scale(1);
-    }
-    #floating-controls.fabs-expanded #zoom-out {
-        transform: translateY(-156px) scale(1);
-    }
-    #floating-controls.fabs-expanded #list-btn {
-        transform: translateY(-208px) scale(1);
-    }
-    
-    /* Animate the toggle button itself to rotate */
-    #fab-toggle-btn {
-        transition: transform 0.3s;
-    }
-    #floating-controls.fabs-expanded #fab-toggle-btn {
-        transform: rotate(135deg);
+    .dock-btn svg {
+        transform: scale(0.9);
     }
 }
 
@@ -2385,101 +2321,6 @@ header nav a:hover {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
-}
-
-/* --- TOC Sidebar Drawer --- */
-.sidebar-drawer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: min(340px, 80vw);
-    height: 100vh;
-    background: rgba(18, 20, 26, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.6);
-    z-index: 150;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(0);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.sidebar-drawer.hidden {
-    transform: translateX(-105%) !important;
-    display: flex !important;
-    pointer-events: none;
-}
-
-.sidebar-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.sidebar-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: #fff;
-}
-
-.sidebar-body {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 12px 10px;
-}
-
-#toc-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.toc-item {
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 13.5px;
-    color: #d1d5db;
-    cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
-    line-height: 1.4;
-    margin-bottom: 4px;
-}
-
-.toc-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-}
-
-.toc-item:active {
-    background: #0a84ff;
-    color: #fff;
-}
-
-#toc-empty-msg {
-    padding: 24px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 13px;
-}
-
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
-    z-index: 140;
-    transition: opacity 0.3s;
-}
-
-.modal-backdrop.hidden {
-    display: none;
 }
 
 /* --- Zen / Immersion Mode (Controls Hidden) --- */

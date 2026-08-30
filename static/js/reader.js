@@ -323,25 +323,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('zoom-in').addEventListener('click', () => changeScale(0.2));
     document.getElementById('zoom-out').addEventListener('click', () => changeScale(-0.2));
 
-    // Mobile FAB menu toggle
-    const fabToggleBtn = document.getElementById('fab-toggle-btn');
-    if (fabToggleBtn) {
-        fabToggleBtn.addEventListener('click', (e) => {
-            // This button is only visible on mobile.
-            e.stopPropagation();
-            floatingControls.classList.toggle('fabs-expanded');
-        });
-    }
-
     // Settings modal open/close functions (ponytail: Center glassmorphic modal with click-outside-to-close)
     function openSettings() {
         if (settingsModalOverlay) {
             settingsModalOverlay.classList.remove('hidden');
         } else if (settingsPanel) {
             settingsPanel.classList.remove('hidden');
-        }
-        if (window.innerWidth <= 480 && floatingControls) {
-            floatingControls.classList.remove('fabs-expanded');
         }
     }
 
@@ -443,10 +430,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const isSettingsOpen = settingsModalOverlay ? !settingsModalOverlay.classList.contains('hidden') : !settingsPanel.classList.contains('hidden');
         if (isSettingsOpen && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
             closeSettings();
-        }
-        // Close mobile FAB menu if click is outside
-        if (floatingControls.classList.contains('fabs-expanded') && !floatingControls.contains(e.target)) {
-            floatingControls.classList.remove('fabs-expanded');
         }
     });
 
@@ -581,93 +564,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- TOC / Bookmarks Navigation ---
-    const tocToggleBtn = document.getElementById('toc-toggle-btn');
-    const tocSidebar = document.getElementById('toc-sidebar');
-    const tocBackdrop = document.getElementById('toc-backdrop');
-    const closeTocBtn = document.getElementById('close-toc-btn');
-    const tocList = document.getElementById('toc-list');
-    const tocEmptyMsg = document.getElementById('toc-empty-msg');
-
-    function closeToc() {
-        if (tocSidebar) tocSidebar.classList.add('hidden');
-        if (tocBackdrop) tocBackdrop.classList.add('hidden');
-    }
-
-    function openToc() {
-        if (tocSidebar) tocSidebar.classList.remove('hidden');
-        if (tocBackdrop) tocBackdrop.classList.remove('hidden');
-        closeSettings();
-    }
-
-    if (tocToggleBtn) tocToggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openToc();
-    });
-    if (closeTocBtn) closeTocBtn.addEventListener('click', closeToc);
-    if (tocBackdrop) tocBackdrop.addEventListener('click', closeToc);
-
-    async function loadOutline() {
-        if (!pdfDoc) return;
-        try {
-            const outline = await pdfDoc.getOutline();
-            if (!outline || outline.length === 0) {
-                if (tocEmptyMsg) tocEmptyMsg.classList.remove('hidden');
-                return;
-            }
-            if (tocEmptyMsg) tocEmptyMsg.classList.add('hidden');
-            if (tocList) {
-                tocList.innerHTML = '';
-                for (const item of outline) {
-                    const li = document.createElement('li');
-                    li.className = 'toc-item';
-                    li.textContent = item.title;
-                    li.addEventListener('click', async () => {
-                        closeToc();
-                        try {
-                            if (typeof item.dest === 'string') {
-                                const dest = await pdfDoc.getDestination(item.dest);
-                                if (dest) {
-                                    const pageIndex = await pdfDoc.getPageIndex(dest[0]);
-                                    pageNum = pageIndex + 1;
-                                    renderQueue(pageNum);
-                                    updateStatus();
-                                }
-                            } else if (Array.isArray(item.dest)) {
-                                const pageIndex = await pdfDoc.getPageIndex(item.dest[0]);
-                                pageNum = pageIndex + 1;
-                                renderQueue(pageNum);
-                                updateStatus();
-                            }
-                        } catch (e) {
-                            console.error('Error navigating to outline destination:', e);
-                        }
-                    });
-                    tocList.appendChild(li);
-                }
-            }
-        } catch (err) {
-            console.log('No outline in PDF or error loading outline:', err);
-            if (tocEmptyMsg) tocEmptyMsg.classList.remove('hidden');
-        }
-    }
-
-    // --- Fullscreen Toggle ---
-    const fullscreenToggleBtn = document.getElementById('fullscreen-toggle-btn');
-    const fullscreenIcon = document.getElementById('fullscreen-icon');
-
-    function toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-            if (fullscreenIcon) fullscreenIcon.textContent = '✕';
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen().catch(() => {});
-            }
-            if (fullscreenIcon) fullscreenIcon.textContent = '⛶';
-        }
-    }
-    if (fullscreenToggleBtn) fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
 
     // Window Resize
     window.addEventListener('resize', debounce(() => {
@@ -698,25 +594,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 e.preventDefault();
                 break;
-            case 'f':
-            case 'F':
-                toggleFullscreen();
-                e.preventDefault();
-                break;
-            case 'm':
-            case 'M':
-                if (tocSidebar && !tocSidebar.classList.contains('hidden')) closeToc(); else openToc();
-                e.preventDefault();
-                break;
             case 's':
             case 'S':
                 settingsBtn.click();
                 e.preventDefault();
                 break;
             case 'Escape':
-                if (tocSidebar && !tocSidebar.classList.contains('hidden')) {
-                    closeToc();
-                } else if ((settingsModalOverlay && !settingsModalOverlay.classList.contains('hidden')) || (settingsPanel && !settingsPanel.classList.contains('hidden'))) {
+                if ((settingsModalOverlay && !settingsModalOverlay.classList.contains('hidden')) || (settingsPanel && !settingsPanel.classList.contains('hidden'))) {
                     closeSettings();
                 } else {
                     window.location.href = '/';
@@ -731,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swipeThreshold = 40;
 
     document.addEventListener('touchstart', (e) => {
-        if (e.target.closest('#settings-panel, #floating-controls, #toc-sidebar, button, input, a, #reader-scrubber-container')) {
+        if (e.target.closest('#settings-panel, #floating-controls, button, input, a, #reader-scrubber-container')) {
             startX = 0;
             startY = 0;
             return;
@@ -773,7 +657,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pageCountSpan.textContent = pdfDoc.numPages;
         renderQueue(pageNum);
         updateScrubberUI();
-        loadOutline();
     }).finally(() => {
         setTimeout(() => { 
             loaderOverlay.classList.add('hidden');

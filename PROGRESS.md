@@ -34,6 +34,7 @@
 - [x] [Implementation] Step 29: Mobile/Touch Screen Chevron Hint Hiding - Added `@media (max-width: 768px), (hover: none) and (pointer: coarse)` in `style.css` to hide `.zone-hint` (<, >) on mobile phones and tablets, completely preventing occlusion of book pages during touch navigation while preserving desktop margin hover indicators (Evaluator subagent PASS)
 - [x] [Implementation] Step 30: Reader Settings Overlay Modal & Click-Outside Auto-Close - Replaced legacy 320px right-sidebar drawer with a centered Apple-style glassmorphic modal overlay (`#settings-modal-overlay` with backdrop blur, rounded card, pop animation), removed obsolete `.shifted-for-panel` CSS, implemented automatic backdrop click-outside closing and circular X close button, and added `test_reader_settings_modal_overlay` (Evaluator subagent PASS)
 - [x] [Debugging] Step 31: Scrubber Progress Synchronization & Dynamic Tooltip Position Tracking - Resolved root cause where missing `#scrubber-tooltip.hidden` and global `.hidden` CSS allowed static "p. 1" dummy text to remain visible on load; added global `.hidden` and `#scrubber-tooltip.hidden` rules, emptied HTML tooltip markup, implemented dynamic position/page tracking with `updateTooltip(clientX, targetPage)` on mouse/touch scrubbing, ensured clean hide on release/leave, and synced scrubber progress and thumb with `updateScrubberUI()` on load and page flips (Evaluator subagent PASS)
+- [x] [Implementation] Step 32: Reader Floating Dock Redesign & YAGNI Cleanup - Replaced 6 bulky vertical stacked circular buttons with an Apple-style horizontal glassmorphic pill dock (`.reader-floating-dock`), completely eliminated unneeded TOC drawer/button and fullscreen toggle (as requested for scanned PDF books), streamlined controls to 4 sleek inline SVG actions (Exit to Library, Zoom Out, Zoom In, Settings), and updated `test_reader_touch_zones_and_scrubber_and_toc` (Evaluator subagent PASS)
 
 ## In progress
 
@@ -44,7 +45,7 @@
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
 - 27/27 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 31 items and confirmed PASS.
+- Evaluator subagent verified Step 32 items and confirmed PASS.
 
 
 

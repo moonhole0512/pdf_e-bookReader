@@ -109,10 +109,19 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('reader-scrubber-container', html)
         self.assertIn('scrubber-track', html)
 
-        # TOC sidebar drawer
-        self.assertIn('toc-sidebar', html)
-        self.assertIn('toc-toggle-btn', html)
-        self.assertIn('fullscreen-toggle-btn', html)
+        # Modern glassmorphic floating pill dock controls (list, zoom-out, zoom-in, settings)
+        self.assertIn('floating-controls', html)
+        self.assertIn('reader-floating-dock', html)
+        self.assertIn('settings-btn', html)
+        self.assertIn('zoom-in', html)
+        self.assertIn('zoom-out', html)
+        self.assertIn('list-btn', html)
+
+        # Unneeded buttons and drawer removed per user request (ponytail: YAGNI)
+        self.assertNotIn('toc-sidebar', html)
+        self.assertNotIn('toc-toggle-btn', html)
+        self.assertNotIn('fullscreen-toggle-btn', html)
+        self.assertNotIn('fab-toggle-btn', html)
 
     def test_multi_card_reading_lounge_up_to_3_books(self):
         """Verify the Now Reading Lounge renders up to 3 recent reading cards in a responsive grid."""
