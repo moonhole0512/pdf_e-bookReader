@@ -33,6 +33,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageCountSpan = document.getElementById('page-count');
     const pageIndicator = document.getElementById('page-indicator');
     
+    // Image Action Menu & Toast Elements
+    const imageActionMenu = document.getElementById('image-action-menu');
+    const imageActionPageLabel = document.getElementById('image-action-page-label');
+    const imgActionCopyBtn = document.getElementById('img-action-copy');
+    const imgActionSaveBtn = document.getElementById('img-action-save');
+    const imgActionOpenBtn = document.getElementById('img-action-open');
+    const readerToast = document.getElementById('reader-toast');
+    let activeCanvas = null;
+    let activePageNum = null;
+    let toastTimeout = null;
+    let longPressTimer = null;
+    let longPressTriggered = false;
+
     // UI Elements
     const settingsModalOverlay = document.getElementById('settings-modal-overlay');
     const settingsPanel = document.getElementById('settings-panel');
@@ -188,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderTwoPages(num, direction) {
+        closeImageMenu();
         viewer.innerHTML = '';
         const canvas1 = document.createElement('canvas');
         const canvas2 = document.createElement('canvas');
@@ -215,6 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderOnePage(num) {
+        closeImageMenu();
         viewer.innerHTML = '';
         const canvas = document.createElement('canvas');
         viewer.appendChild(canvas);
@@ -635,6 +650,159 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Image Action Menu Logic (Right-Click Context Menu & Mobile Long-Press) ---
+    const showReaderToast = (message) => {
+        if (!readerToast) return;
+        readerToast.textContent = message;
+        readerToast.classList.remove('hidden');
+        readerToast.classList.remove('toast-pop-in');
+        void readerToast.offsetWidth; // Force CSS reflow
+        readerToast.classList.add('toast-pop-in');
+
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            readerToast.classList.add('hidden');
+        }, 2200);
+    };
+
+    const closeImageMenu = () => {
+        if (imageActionMenu && !imageActionMenu.classList.contains('hidden')) {
+            imageActionMenu.classList.add('hidden');
+        }
+    };
+
+    const getTargetCanvas = (clientX, clientY) => {
+        const canvases = viewer.querySelectorAll('canvas');
+        if (canvases.length === 0) return null;
+        if (canvases.length === 1) return { canvas: canvases[0], pageNum: pageNum };
+
+        for (let i = 0; i < canvases.length; i++) {
+            const rect = canvases[i].getBoundingClientRect();
+            if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+                const targetP = (i === 0) ? (viewMode === 'rtl' ? pageNum + 1 : pageNum) : (viewMode === 'rtl' ? pageNum : pageNum + 1);
+                return { canvas: canvases[i], pageNum: targetP };
+            }
+        }
+        return { canvas: canvases[0], pageNum: pageNum };
+    };
+
+    const openImageMenu = (x, y, target) => {
+        if (!imageActionMenu || !target) return;
+        activeCanvas = target.canvas;
+        activePageNum = target.pageNum;
+
+        if (imageActionPageLabel) {
+            imageActionPageLabel.textContent = `p. ${activePageNum} 이미지`;
+        }
+
+        const menuWidth = 175;
+        const menuHeight = 140;
+        const posX = Math.min(Math.max(10, x), window.innerWidth - menuWidth - 10);
+        const posY = Math.min(Math.max(10, y), window.innerHeight - menuHeight - 10);
+
+        imageActionMenu.style.left = `${posX}px`;
+        imageActionMenu.style.top = `${posY}px`;
+        imageActionMenu.classList.remove('hidden');
+    };
+
+    if (imgActionCopyBtn) {
+        imgActionCopyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeImageMenu();
+            if (!activeCanvas) return;
+
+            activeCanvas.toBlob(async (blob) => {
+                if (!blob) {
+                    showReaderToast('이미지 생성에 실패했습니다.');
+                    return;
+                }
+                try {
+                    if (navigator.clipboard && navigator.clipboard.write) {
+                        await navigator.clipboard.write([
+                            new ClipboardItem({ 'image/png': blob })
+                        ]);
+                        showReaderToast('이미지가 클립보드에 복사되었습니다! ✓');
+                    } else {
+                        showReaderToast('브라우저 보안으로 인해 이미지 저장을 이용해주세요.');
+                    }
+                } catch (err) {
+                    console.error('Clipboard copy failed:', err);
+                    showReaderToast('클립보드 복사 권한이 없습니다. 이미지 저장을 이용해주세요.');
+                }
+            }, 'image/png');
+        });
+    }
+
+    if (imgActionSaveBtn) {
+        imgActionSaveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeImageMenu();
+            if (!activeCanvas) return;
+
+            activeCanvas.toBlob((blob) => {
+                if (!blob) {
+                    showReaderToast('이미지 생성에 실패했습니다.');
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const titleEl = document.querySelector('.reader-book-title');
+                const rawTitle = titleEl ? titleEl.textContent.trim() : 'ebook';
+                const safeTitle = rawTitle.replace(/[\\/:*?"<>|]/g, '_');
+                a.download = `${safeTitle}_p${activePageNum || pageNum}.png`;
+                a.href = url;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showReaderToast('이미지가 성공적으로 저장되었습니다! ✓');
+            }, 'image/png');
+        });
+    }
+
+    if (imgActionOpenBtn) {
+        imgActionOpenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeImageMenu();
+            if (!activeCanvas) return;
+
+            activeCanvas.toBlob((blob) => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            }, 'image/png');
+        });
+    }
+
+    // Right-Click Context Menu on Reader Canvas & Touch Zones
+    const handleContextMenu = (e) => {
+        if (e.target.closest('#image-action-menu, #settings-modal-overlay, #next-volume-popup, input, button')) {
+            return;
+        }
+        const target = getTargetCanvas(e.clientX, e.clientY);
+        if (target) {
+            e.preventDefault();
+            e.stopPropagation();
+            openImageMenu(e.clientX, e.clientY, target);
+        }
+    };
+    container.addEventListener('contextmenu', handleContextMenu);
+    if (touchZonesWrapper) {
+        touchZonesWrapper.addEventListener('contextmenu', handleContextMenu);
+    }
+
+    document.addEventListener('click', (e) => {
+        if (imageActionMenu && !imageActionMenu.contains(e.target)) {
+            closeImageMenu();
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeImageMenu();
+        }
+    });
+
     // --- Mobile Touch Gestures: Smooth Scroll Preservation + Tap Navigation + Swipe ---
     let touchStartTime = 0;
     let touchStartX = 0;
@@ -642,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isTouchScrolling = false;
 
     document.addEventListener('touchstart', (e) => {
-        if (e.target.closest('#settings-panel, #floating-controls, #reader-scrubber-container, button, input, a')) {
+        if (e.target.closest('#settings-panel, #floating-controls, #reader-scrubber-container, #image-action-menu, button, input, a')) {
             touchStartX = 0;
             touchStartY = 0;
             return;
@@ -651,6 +819,19 @@ document.addEventListener('DOMContentLoaded', () => {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
         isTouchScrolling = false;
+        longPressTriggered = false;
+
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+            const target = getTargetCanvas(touchStartX, touchStartY);
+            if (target) {
+                longPressTriggered = true;
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(40); } catch(err){}
+                }
+                openImageMenu(touchStartX, touchStartY, target);
+            }
+        }, 500);
     }, { passive: true });
 
     document.addEventListener('touchmove', (e) => {
@@ -659,10 +840,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const diffY = Math.abs(e.touches[0].clientY - touchStartY);
         if (diffY > 8 || diffX > 8) {
             isTouchScrolling = true;
+            if (longPressTimer) clearTimeout(longPressTimer);
         }
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
+        if (longPressTimer) clearTimeout(longPressTimer);
+        if (longPressTriggered) {
+            longPressTriggered = false;
+            touchStartX = 0;
+            touchStartY = 0;
+            return;
+        }
+
         if (touchStartX === 0) return;
 
         const endX = e.changedTouches[0].clientX;

@@ -3040,6 +3040,113 @@ header nav a:hover {
     font-size: 10px !important;
 }
 
+/* --- Reader Image Action Menu (Apple Glassmorphism) --- */
+.image-action-menu {
+    position: fixed;
+    z-index: 10000;
+    min-width: 170px;
+    background: rgba(24, 26, 36, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: imageMenuPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: top left;
+}
 
+@keyframes imageMenuPop {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
 
+.image-action-header {
+    padding: 6px 10px 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #8c92a4;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 4px;
+}
 
+.image-action-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: #f0f3f8;
+    font-size: 0.88rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+    box-sizing: border-box;
+}
+
+.image-action-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #4da3ff;
+}
+
+.image-action-item svg {
+    flex-shrink: 0;
+    color: #a0a6b5;
+    transition: color 0.15s ease;
+}
+
+.image-action-item:hover svg {
+    color: #4da3ff;
+}
+
+/* --- Reader Floating Toast Notification --- */
+.reader-toast {
+    position: fixed;
+    bottom: 85px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: rgba(16, 18, 26, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: #ffffff;
+    padding: 10px 22px;
+    border-radius: 30px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 10001;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    white-space: nowrap;
+}
+
+.reader-toast.toast-pop-in {
+    animation: readerToastPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes readerToastPop {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}

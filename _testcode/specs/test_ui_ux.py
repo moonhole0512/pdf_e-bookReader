@@ -569,5 +569,33 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('margin: auto;', css)
         self.assertIn('#pdf-viewer {', css)
 
+    def test_reader_image_copy_and_save_action_menu(self):
+        """Verify image action menu for right-click copy and save in reader mode."""
+        with open('templates/reader.html', 'r', encoding='utf-8') as f:
+            html = f.read()
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        # 1. Markup checks in reader.html
+        self.assertIn('id="image-action-menu"', html)
+        self.assertIn('id="img-action-copy"', html)
+        self.assertIn('id="img-action-save"', html)
+        self.assertIn('id="img-action-open"', html)
+        self.assertIn('id="reader-toast"', html)
+
+        # 2. CSS checks
+        self.assertIn('.image-action-menu {', css)
+        self.assertIn('z-index: 10000;', css)
+        self.assertIn('.reader-toast {', css)
+
+        # 3. JS checks: right click contextmenu, mobile longpress, clipboard copy, save
+        self.assertIn("container.addEventListener('contextmenu'", js)
+        self.assertIn("touchZonesWrapper.addEventListener('contextmenu'", js)
+        self.assertIn('navigator.clipboard.write', js)
+        self.assertIn('showReaderToast(', js)
+        self.assertIn('longPressTimer', js)
+
 if __name__ == '__main__':
     unittest.main()
