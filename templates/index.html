@@ -30,7 +30,7 @@
         {% if recent_lounge_items %}
         <section class="bookshelf reading-lounge-section">
             <div class="reading-lounge-header">
-                <h2>📖 이어 읽기</h2>
+                <h2>이어 읽기</h2>
                 {% if recent_lounge_items|length > 1 %}
                 <span class="lounge-count-badge">최근 {{ recent_lounge_items|length }}권</span>
                 {% endif %}
@@ -50,7 +50,7 @@
                             <div class="book-spine-crease"></div>
                         </a>
                         <div class="lounge-details">
-                            <div class="lounge-badge">📖 이어 읽기</div>
+                            <div class="lounge-badge">이어 읽기</div>
                             <h3 class="lounge-title">
                                 <a href="{{ url_for('reader.reader_view', file_id=f.id) }}" class="lounge-title-link">
                                     {{ f.title or f.book.title }}
@@ -76,13 +76,7 @@
                                     다음 권: 제{{ next_vol.volume_number }}권 ⏭️
                                 </a>
                                 {% endif %}
-                                <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ f.id }}" data-book-title="{{ f.title or f.book.title }}" data-volume-number="{{ f.volume_number }}" title="도서 메타데이터 및 표지 수정">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;">
-                                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                                    </svg>
-                                    ISBN
-                                </button>
+                                <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ f.id }}" data-book-title="{{ f.title or f.book.title }}" data-volume-number="{{ f.volume_number }}" title="도서 메타데이터 및 표지 수정">ISBN</button>
                             </div>
                         </div>
                     </div>
@@ -103,7 +97,7 @@
                         <div class="book-spine-crease"></div>
                     </a>
                     <div class="lounge-details">
-                        <div class="lounge-badge">📖 이어 읽기</div>
+                        <div class="lounge-badge">이어 읽기</div>
                         <h2 class="lounge-title">
                             <a href="{{ url_for('reader.reader_view', file_id=last_read_file.id) }}" class="lounge-title-link">
                                 {{ last_read_file.title or last_read_file.book.title }}
@@ -129,13 +123,7 @@
                                 다음 권: 제{{ next_volume_file.volume_number }}권 바로가기 ⏭️
                             </a>
                             {% endif %}
-                            <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}" title="도서 메타데이터 및 표지 수정">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;">
-                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                                </svg>
-                                ISBN
-                            </button>
+                            <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}" title="도서 메타데이터 및 표지 수정">ISBN</button>
                         </div>
                     </div>
                 </div>
@@ -184,9 +172,20 @@
                     <h2>모든 책</h2>
                     <div class="shelf-filter-chips">
                         <button class="filter-chip active" data-filter="all">전체 서재</button>
-                        <button class="filter-chip" data-filter="reading">📖 읽는 중</button>
-                        <button class="filter-chip" data-filter="unread">🎲 미독 도서</button>
-                        <button class="filter-chip" data-filter="completed">🏆 완독 도서</button>
+                        <button class="filter-chip" data-filter="reading">읽는 중</button>
+                        <button class="filter-chip" data-filter="unread">
+                            <svg class="chip-svg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+                            </svg>
+                            미독 도서
+                        </button>
+                        <button class="filter-chip" data-filter="completed">
+                            <svg class="chip-svg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            완독 도서
+                        </button>
                     </div>
                 </div>
                 <div class="header-right">

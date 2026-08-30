@@ -300,9 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isCompleted) {
                 badgeHtml = '<div class="completed-badge">완독 ✓</div>';
             } else if (isNextToRead) {
-                badgeHtml = '<div class="next-to-read-badge">다음 읽을 차례 ✨</div>';
+                badgeHtml = '<div class="next-to-read-badge">다음 차례</div>';
             } else if (isReading) {
-                badgeHtml = '<div class="reading-badge">📖 읽는 중</div>';
+                badgeHtml = '<div class="reading-badge">읽는 중</div>';
             }
 
             // Standardized progress & status text across ALL volumes (even unread ones)
@@ -340,13 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="progress-text">${progressLabel}</span>
                     </div>
                     <div class="vol-action-row">
-                        <button type="button" class="isbn-btn vol-isbn-btn" data-file-id="${vol.id}" data-book-title="${vol.title || '제목 없음'}" data-volume-number="${vol.volume_number}" title="도서 메타데이터 및 표지 수정">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;">
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                            </svg>
-                            ISBN
-                        </button>
+                        <button type="button" class="isbn-btn vol-isbn-btn" data-file-id="${vol.id}" data-book-title="${vol.title || '제목 없음'}" data-volume-number="${vol.volume_number}" title="도서 메타데이터 및 표지 수정">ISBN</button>
                     </div>
                 </div>
             `;

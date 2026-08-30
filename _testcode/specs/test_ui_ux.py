@@ -138,8 +138,9 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('reading-lounge-grid', html)
         self.assertIn('reading-lounge-card', html)
 
-        # Confirm Korean-only badge and unified ISBN button
-        self.assertIn('📖 이어 읽기', html)
+        # Confirm Korean-only badge and unified ISBN button (no clutter icons)
+        self.assertIn('이어 읽기', html)
+        self.assertNotIn('📖 이어 읽기', html)
         self.assertNotIn('NOW READING', html)
         self.assertIn('lounge-isbn-btn', html)
         self.assertNotIn('ISBN 정보 수정', html)
@@ -434,6 +435,46 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('.search-target-pill {', css)
         self.assertIn('.search-target-vol-badge {', css)
         self.assertIn('.search-step-desc {', css)
+
+    def test_icon_cleanup_and_status_chip_modernization(self):
+        """Verify icons are removed from ISBN, reading status, and continue reading, while chips use sleek SVG icons."""
+        with open('templates/index.html', 'r', encoding='utf-8') as f:
+            index_html = f.read()
+        with open('templates/_book_list.html', 'r', encoding='utf-8') as f:
+            list_html = f.read()
+        with open('static/js/library.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. Icons removed from ISBN, 읽는 중, 이어 읽기
+        self.assertNotIn('<h2>📖 이어 읽기</h2>', index_html)
+        self.assertIn('<h2>이어 읽기</h2>', index_html)
+        self.assertNotIn('<div class="lounge-badge">📖 이어 읽기</div>', index_html)
+        self.assertIn('<div class="lounge-badge">이어 읽기</div>', index_html)
+
+        # No book emoji in reading badge
+        self.assertNotIn('📖 읽는 중', list_html)
+        self.assertIn('읽는 중', list_html)
+        self.assertNotIn('📖 읽는 중', js)
+
+        # No SVG icon inside ISBN buttons
+        self.assertIn('lounge-isbn-btn', index_html)
+        self.assertIn('>ISBN</button>', index_html)
+        self.assertIn('>ISBN</button>', js)
+
+        # 2. Sleek SVG icons for unread and completed chips in shelf filter
+        self.assertIn('data-filter="reading">읽는 중</button>', index_html)
+        self.assertIn('data-filter="unread">', index_html)
+        self.assertIn('data-filter="completed">', index_html)
+        self.assertNotIn('🎲 미독 도서', index_html)
+        self.assertNotIn('🏆 완독 도서', index_html)
+        self.assertIn('chip-svg-icon', index_html)
+        self.assertIn('.chip-svg-icon {', css)
+
+        # 3. Clean completed checkmark in list badges (no trophy emoji)
+        self.assertNotIn('완독 🏆', list_html)
+        self.assertIn('완독 ✓', list_html)
 
 if __name__ == '__main__':
     unittest.main()
