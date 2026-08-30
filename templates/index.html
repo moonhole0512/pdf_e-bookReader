@@ -71,10 +71,8 @@
                             {% endif %}
 
                             <div class="lounge-actions">
-                                {% if next_vol %}
-                                <a href="{{ url_for('reader.reader_view', file_id=next_vol.id) }}" class="lounge-btn secondary-btn" title="시리즈 다음 권 바로 읽기">
-                                    다음 권: 제{{ next_vol.volume_number }}권 ⏭️
-                                </a>
+                                {% if item.has_series %}
+                                <button type="button" class="lounge-btn secondary-btn series-view-btn" data-series-title="{{ f.book.title }}" data-volumes='{{ item.series_files | tojson }}' title="시리즈 전체 권수 목록 보기">시리즈 보기</button>
                                 {% endif %}
                                 <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ f.id }}" data-book-title="{{ f.title or f.book.title }}" data-volume-number="{{ f.volume_number }}" title="도서 메타데이터 및 표지 수정">ISBN</button>
                             </div>
@@ -118,10 +116,8 @@
                         {% endif %}
 
                         <div class="lounge-actions">
-                            {% if next_volume_file %}
-                            <a href="{{ url_for('reader.reader_view', file_id=next_volume_file.id) }}" class="lounge-btn secondary-btn" title="시리즈 다음 권 바로 읽기">
-                                다음 권: 제{{ next_volume_file.volume_number }}권 바로가기 ⏭️
-                            </a>
+                            {% if last_series_files | length > 1 %}
+                            <button type="button" class="lounge-btn secondary-btn series-view-btn" data-series-title="{{ last_read_file.book.title }}" data-volumes='{{ last_series_files | tojson }}' title="시리즈 전체 권수 목록 보기">시리즈 보기</button>
                             {% endif %}
                             <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}" title="도서 메타데이터 및 표지 수정">ISBN</button>
                         </div>

@@ -459,7 +459,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // For opening Volume Select modal when clicking volume badge
+        // For opening Volume Select modal when clicking series view button or volume badge
+        const seriesBtn = e.target.closest('.series-view-btn');
+        if (seriesBtn) {
+            e.stopPropagation();
+            openVolumeModal(seriesBtn);
+            return;
+        }
+
         const volumeBadge = e.target.closest('.volume-badge');
         if (volumeBadge) {
             const card = volumeBadge.closest('.book-card[data-is-group="true"]');

@@ -144,6 +144,9 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertNotIn('NOW READING', html)
         self.assertIn('lounge-isbn-btn', html)
         self.assertNotIn('ISBN 정보 수정', html)
+        self.assertIn('series-view-btn', html)
+        self.assertIn('시리즈 보기', html)
+        self.assertNotIn('다음 권:', html)
 
         # Confirm CSS supports count-4 and 2x2 grid
         with open('static/css/style.css', 'r', encoding='utf-8') as f:
@@ -522,6 +525,35 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('touchDuration < 350', js)
         self.assertIn('leftBoundary = screenWidth * 0.25;', js)
         self.assertIn('rightBoundary = screenWidth * 0.75;', js)
+
+    def test_reader_title_display_and_series_view_button(self):
+        """Verify book title is displayed in reader menu and lounge displays series-view-btn."""
+        with open('templates/reader.html', 'r', encoding='utf-8') as f:
+            reader_html = f.read()
+        with open('templates/index.html', 'r', encoding='utf-8') as f:
+            index_html = f.read()
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        with open('static/js/library.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        # 1. Reader displays book title and volume tag in header info pill
+        self.assertIn('class="reader-info-pill"', reader_html)
+        self.assertIn('class="reader-book-title"', reader_html)
+        self.assertIn('{{ file.book.title }}', reader_html)
+        self.assertIn('class="reader-vol-badge"', reader_html)
+        self.assertIn('.reader-book-title {', css)
+        self.assertIn('.reader-vol-badge {', css)
+
+        # 2. Lounge displays "시리즈 보기" without icons and without "다음 권"
+        self.assertIn('series-view-btn', index_html)
+        self.assertIn('>시리즈 보기</button>', index_html)
+        self.assertNotIn('다음 권:', index_html)
+        self.assertNotIn('⏭️', index_html)
+
+        # 3. library.js supports opening volume select modal on series-view-btn click
+        self.assertIn("e.target.closest('.series-view-btn')", js)
+        self.assertIn('openVolumeModal(seriesBtn);', js)
 
 if __name__ == '__main__':
     unittest.main()

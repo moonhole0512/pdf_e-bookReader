@@ -38,11 +38,17 @@ def index():
             volume_number=f.volume_number + 1
         ).first()
 
+        book_files = File.query.filter_by(book_id=f.book_id).order_by(File.volume_number).all()
+        bg = group_files_by_book(book_files, user_id)
+        series_files = bg[0]['files'] if bg else []
+
         recent_lounge_items.append({
             'file': f,
             'state': state,
             'pct': pct,
             'pages_left': pages_left,
+            'series_files': series_files,
+            'has_series': len(series_files) > 1,
             'next_volume_file': next_vol
         })
         if len(recent_lounge_items) >= 4:
@@ -96,11 +102,13 @@ def index():
 
     last_file = recent_lounge_items[0]['file'] if recent_lounge_items else None
     next_volume_file = recent_lounge_items[0]['next_volume_file'] if recent_lounge_items else None
+    last_series_files = recent_lounge_items[0]['series_files'] if recent_lounge_items else []
 
     return render_template(
         'index.html',
         recent_lounge_items=recent_lounge_items,
         last_read_file=last_file,
+        last_series_files=last_series_files,
         next_volume_file=next_volume_file,
         reading_groups=reading_groups,
         recommended_groups=recommended_groups,

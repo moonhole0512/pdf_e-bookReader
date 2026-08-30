@@ -58,8 +58,13 @@
         <div id="scrubber-tooltip" class="hidden"></div>
     </div>
 
-    <div id="page-indicator">
-        <span id="page-num"></span> / <span id="page-count"></span>
+    <div id="page-indicator" class="reader-info-pill">
+        <span class="reader-book-title" title="{{ file.book.title }}">{{ file.book.title }}</span>
+        {% if file.volume_number %}
+        <span class="reader-vol-badge">제{{ file.volume_number }}권</span>
+        {% endif %}
+        <span class="reader-info-divider">·</span>
+        <span class="reader-page-text"><span id="page-num"></span> / <span id="page-count"></span></span>
     </div>
 
     <!-- Apple-Style Glass Floating Controls (ponytail: Modern 4-action pill dock) -->
