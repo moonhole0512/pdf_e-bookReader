@@ -2201,6 +2201,13 @@ header nav a:hover {
     transform: scale(0.92);
 }
 
+/* ponytail: Hide touch zone chevron hints on mobile/touch screens to avoid occluding book text/artwork */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+    .zone-hint {
+        display: none !important;
+    }
+}
+
 /* --- Bottom Timeline Scrubber --- */
 #reader-scrubber-container {
     position: fixed;

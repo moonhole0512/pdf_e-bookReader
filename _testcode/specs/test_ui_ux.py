@@ -239,6 +239,10 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('align-items: center;', hint_block)
         self.assertIn('justify-content: center;', hint_block)
 
+        # Check zone-hint is hidden on mobile/touch screens to avoid occluding book text
+        mobile_idx = css.index('Hide touch zone chevron hints')
+        self.assertIn('display: none !important;', css[mobile_idx:mobile_idx + 250])
+
     def test_reader_sharpen_filter_options(self):
         """Verify reader contains GPU-accelerated SVG sharpen filters and 3-step UI button group."""
         from models import File
