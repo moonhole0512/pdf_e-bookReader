@@ -8,6 +8,11 @@
     --card-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
+html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--primary-bg);
@@ -705,25 +710,7 @@ header nav a:hover {
 }
 #go-to-next-volume { background-color: var(--accent-color); color: white; }
 
-/* --- Responsive Design --- */
-@media (max-width: 768px) {
-    header { flex-direction: column; gap: 0.5rem; }
-    .book-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-    .reader-controls { 
-        bottom: 0; top: auto; 
-        left: 0; right: 0; 
-        transform: none;
-        width: 100%;
-        justify-content: space-around;
-        border-radius: 15px 15px 0 0;
-    }
-}
-
-@media (max-width: 480px) {
-    .book-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-    .library-container { padding: 1rem; }
-    .book-card h3 { font-size: 0.9rem; }
-}
+/* --- Legacy Reader Controls (Deprecated, Handled by Modern Floating Dock) --- */
 
 /* --- ISBN Button & Modal Styles --- */
 .isbn-btn {
@@ -1960,81 +1947,248 @@ header nav a:hover {
     position: relative;
 }
 
-/* Mobile 2-Column Responsive Grid (< 600px) */
-@media (max-width: 600px) {
-    .book-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 12px !important;
-    }
-    .volume-modal-card {
-        padding: 1.25rem !important;
-        width: 95% !important;
-    }
-    #volume-list.book-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 10px !important;
-        max-height: 60vh !important;
-    }
+/* ==========================================================================
+   Comprehensive Mobile & Tablet Responsive Engine (< 768px and <= 600px)
+   ========================================================================== */
+
+/* Tablet Optimization (601px - 768px) */
+@media (max-width: 768px) {
     .library-container {
-        padding: 1rem 0.5rem;
+        padding: 1.25rem 1rem;
+        max-width: 100%;
+        box-sizing: border-box;
     }
-    .book-card .book-info {
-        padding: 0.6rem;
+    .book-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 16px 12px;
     }
-    .book-card h3 {
-        font-size: 0.85rem;
+}
+
+/* Smartphone Strict Responsive Optimization (<= 600px) */
+@media (max-width: 600px) {
+    /* 1. Viewport & Container Full Width */
+    .library-container {
+        padding: 12px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
-    .book-card p {
-        font-size: 0.75rem;
-    }
+
+    /* 2. Header Full Width & Alignment */
     header {
         flex-direction: column;
         gap: 0.75rem;
-        padding: 1rem;
+        padding: 12px 14px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    header h1 {
+        font-size: 1.2rem;
+    }
+    header nav {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     .scan-container {
         flex-wrap: wrap;
-        justify-content: center;
+        width: 100%;
+        justify-content: space-between;
+        gap: 6px;
+    }
+    .scan-container button, .scan-container a {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+
+    /* 3. Reading Lounge Full Width & Polish */
+    .reading-lounge-section {
+        margin-bottom: 2rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .reading-lounge-grid {
+        grid-template-columns: 1fr !important; /* Full-width cards for mobile */
+        gap: 12px !important;
+        width: 100% !important;
+    }
+    .reading-lounge-card {
+        padding: 14px 16px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .lounge-content {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        text-align: left !important;
+        gap: 14px !important;
+        width: 100% !important;
+    }
+    .lounge-book-3d {
+        width: 75px !important;
+        min-width: 75px !important;
+        margin: 0 !important;
+    }
+    .lounge-details {
+        flex: 1 !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+    .lounge-title {
+        font-size: 0.98rem !important;
+        margin-bottom: 2px !important;
+        max-width: 100% !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .lounge-meta {
+        font-size: 0.76rem !important;
+        margin-bottom: 6px !important;
+    }
+    .lounge-progress-wrapper {
+        margin-bottom: 6px !important;
+    }
+    .lounge-actions {
+        justify-content: flex-start !important;
+        gap: 8px !important;
+    }
+    .lounge-isbn-btn {
+        margin: 0 !important;
+    }
+
+    /* 4. Bookshelf & Search Controls Full Width */
+    .bookshelf {
+        margin-bottom: 2rem;
+        width: 100%;
+        box-sizing: border-box;
     }
     .bookshelf-header {
         flex-direction: column;
-        gap: 0.5rem;
-        align-items: flex-start;
+        gap: 0.75rem;
+        align-items: stretch !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
     .header-left, .header-right {
-        width: 100%;
+        width: 100% !important;
         flex-direction: column;
         align-items: stretch !important;
+        gap: 8px;
+        box-sizing: border-box !important;
     }
     .shelf-filter-chips {
+        width: 100%;
+        display: flex;
         overflow-x: auto;
         padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .shelf-filter-chips .filter-chip {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 5px 12px;
+    }
+    .sort-dropdown-wrapper {
+        width: 100%;
+    }
+    .shelf-sort-select {
+        width: 100% !important;
+        box-sizing: border-box;
     }
     .search-form {
-        margin-left: 0;
-        width: 100%;
+        margin-left: 0 !important;
+        width: 100% !important;
+        display: flex;
+        gap: 6px;
+        box-sizing: border-box !important;
+    }
+    .search-form input {
+        min-width: 0 !important;
+        width: 100% !important;
+        flex: 1 !important;
+        box-sizing: border-box !important;
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+    .search-form button {
+        flex-shrink: 0;
+        padding: 8px 14px;
+        font-size: 13px;
     }
     .shuffle-action-mini-btn {
-        margin-left: 0;
-        width: 100%;
+        margin-left: 0 !important;
+        width: 100% !important;
         text-align: center;
+        box-sizing: border-box !important;
     }
-    .reading-lounge-card {
-        padding: 16px;
+
+    /* 5. Pixel-Perfect 2-Column Book Grid (Uniform Across Rows 1 & 2) */
+    .book-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
-    .lounge-content {
-        flex-direction: column;
-        text-align: center;
+    .book-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
-    .lounge-book-3d {
-        width: 120px;
-        margin: 0 auto;
+    .book-cover-container {
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1.45 !important;
+        border-radius: 4px 8px 8px 4px !important;
     }
-    .lounge-actions {
-        justify-content: center;
+    .book-cover-container img,
+    .book-card img {
+        width: 100% !important;
+        height: 100% !important;
+        aspect-ratio: 1 / 1.45 !important;
+        object-fit: cover !important;
+        display: block !important;
     }
-    .lounge-isbn-btn {
-        margin: 8px auto 0 auto !important;
+    .book-card .book-info {
+        padding: 8px 2px 2px 2px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+    .book-card h3 {
+        font-size: 0.86rem !important;
+        margin: 0 0 3px 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .book-card p {
+        font-size: 0.74rem !important;
+        margin: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* 6. Volume Modal Mobile Sizing */
+    .volume-modal-card {
+        padding: 1.25rem !important;
+        width: 95% !important;
+        box-sizing: border-box !important;
+    }
+    #volume-list.book-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        max-height: 60vh !important;
     }
 }
 
@@ -2109,43 +2263,7 @@ header nav a:hover {
     }
 }
 
-@media (max-width: 600px) {
-    .reading-lounge-grid.count-2,
-    .reading-lounge-grid.count-3,
-    .reading-lounge-grid.count-4 {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-    }
-    .reading-lounge-grid:not(.count-1) .reading-lounge-card {
-        padding: 12px 14px;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-content {
-        gap: 10px;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-book-3d {
-        width: 76px;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-details {
-        width: 100%;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-title {
-        font-size: 0.95rem;
-        max-width: 100%;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-meta {
-        font-size: 0.78rem;
-        margin-bottom: 8px;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-progress-wrapper {
-        margin-bottom: 8px;
-    }
-    .reading-lounge-grid:not(.count-1) .lounge-actions {
-        justify-content: center;
-    }
-}
+
 
 /* Multi-Card Compact Balancing when showing multiple books */
 .reading-lounge-grid:not(.count-1) .reading-lounge-card {

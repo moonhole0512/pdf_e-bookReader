@@ -476,5 +476,26 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertNotIn('완독 🏆', list_html)
         self.assertIn('완독 ✓', list_html)
 
+    def test_mobile_responsive_full_width_and_uniform_book_sizes(self):
+        """Verify mobile CSS guarantees full width, overflow prevention, and uniform book card sizes across rows."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. Global horizontal overflow prevention
+        self.assertIn('overflow-x: hidden;', css)
+
+        # 2. Cleaned legacy conflicting grid queries
+        self.assertNotIn('minmax(120px, 1fr)', css)
+
+        # 3. Mobile (< 600px) pixel-perfect 2-column uniform book grid
+        self.assertIn('grid-template-columns: repeat(2, minmax(0, 1fr)) !important;', css)
+        self.assertIn('aspect-ratio: 1 / 1.45 !important;', css)
+
+        # 4. Mobile full-width reading lounge cards
+        self.assertIn('grid-template-columns: 1fr !important; /* Full-width cards for mobile */', css)
+
+        # 5. Mobile search input overflow prevention
+        self.assertIn('min-width: 0 !important;', css)
+
 if __name__ == '__main__':
     unittest.main()
