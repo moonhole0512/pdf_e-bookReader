@@ -102,6 +102,8 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('zone-prev', html)
         self.assertIn('zone-center', html)
         self.assertIn('zone-next', html)
+        self.assertIn('<polyline points="15 18 9 12 15 6">', html)
+        self.assertIn('<polyline points="9 18 15 12 9 6">', html)
 
         # Bottom scrubber
         self.assertIn('reader-scrubber-container', html)
@@ -219,6 +221,23 @@ class TestUIUXEnhancements(unittest.TestCase):
         page_ind_block = css[css.index('#page-indicator.reader-controls-hidden'):css.index('#page-indicator.reader-controls-hidden') + 200]
         self.assertNotIn('translateX', page_ind_block)
         self.assertIn('translateY', page_ind_block)
+
+    def test_touch_zones_default_cursor_and_svg_centering(self):
+        """Verify touch zones keep default cursor and zone hints use centered SVGs."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # Check cursor is default on touch zones
+        left_block = css[css.index('.touch-zone-left {'):css.index('.touch-zone-left {') + 100]
+        self.assertIn('cursor: default;', left_block)
+        right_block = css[css.index('.touch-zone-right {'):css.index('.touch-zone-right {') + 100]
+        self.assertIn('cursor: default;', right_block)
+
+        # Check zone-hint uses flex center for pixel-perfect centering
+        hint_block = css[css.index('.zone-hint {'):css.index('.zone-hint {') + 600]
+        self.assertIn('display: flex;', hint_block)
+        self.assertIn('align-items: center;', hint_block)
+        self.assertIn('justify-content: center;', hint_block)
 
 if __name__ == '__main__':
     unittest.main()

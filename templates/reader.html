@@ -19,12 +19,20 @@
 
         <!-- Click & Tap Navigation Zones (Left 25%, Center 50%, Right 25%) -->
         <div id="reader-touch-zones">
-            <div id="zone-prev" class="touch-zone touch-zone-left" title="이전 페이지 (클릭 또는 탭)">
-                <div class="zone-hint">‹</div>
+            <div id="zone-prev" class="touch-zone touch-zone-left">
+                <div class="zone-hint" aria-label="이전 페이지">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </div>
             </div>
-            <div id="zone-center" class="touch-zone touch-zone-center" title="메뉴 토글 (클릭 또는 탭)"></div>
-            <div id="zone-next" class="touch-zone touch-zone-right" title="다음 페이지 (클릭 또는 탭)">
-                <div class="zone-hint">›</div>
+            <div id="zone-center" class="touch-zone touch-zone-center"></div>
+            <div id="zone-next" class="touch-zone touch-zone-right">
+                <div class="zone-hint" aria-label="다음 페이지">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </div>
             </div>
         </div>
     </div>
