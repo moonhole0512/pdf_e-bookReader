@@ -275,5 +275,39 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('url(#sharpen-filter-mild)', js)
         self.assertIn('url(#sharpen-filter-strong)', js)
 
+    def test_reader_settings_modal_overlay(self):
+        """Verify settings panel is rendered as a centered glassmorphic modal overlay with click-outside closing."""
+        from models import File
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        file_obj = File.query.first()
+        self.assertIsNotNone(file_obj)
+
+        resp = self.client.get(f'/reader/{file_obj.id}')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+
+        # 1. HTML Modal Overlay Structure
+        self.assertIn('id="settings-modal-overlay"', html)
+        self.assertIn('modal-overlay', html)
+        self.assertIn('settings-modal-card', html)
+        self.assertIn('id="close-settings-btn"', html)
+
+        # 2. CSS Centered Modal Styling & No Sidebar Shift
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        self.assertIn('#settings-modal-overlay {', css)
+        self.assertIn('.settings-modal-card {', css)
+        self.assertNotIn('shifted-for-panel', css)
+
+        # 3. JavaScript Click-outside and close logic
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        self.assertIn('settingsModalOverlay', js)
+        self.assertIn('closeSettings()', js)
+        self.assertIn('e.target === settingsModalOverlay', js)
+
 if __name__ == '__main__':
     unittest.main()

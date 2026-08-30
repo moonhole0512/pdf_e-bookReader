@@ -34,7 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageIndicator = document.getElementById('page-indicator');
     
     // UI Elements
+    const settingsModalOverlay = document.getElementById('settings-modal-overlay');
     const settingsPanel = document.getElementById('settings-panel');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
     const floatingControls = document.getElementById('floating-controls');
     const settingsBtn = document.getElementById('settings-btn');
 
@@ -331,21 +333,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Settings panel toggle
-    settingsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isHidden = settingsPanel.classList.toggle('hidden');
-        
-        // On desktop, shift the FABs over when panel opens
-        if (window.innerWidth > 480) {
-            floatingControls.classList.toggle('shifted-for-panel', !isHidden);
+    // Settings modal open/close functions (ponytail: Center glassmorphic modal with click-outside-to-close)
+    function openSettings() {
+        if (settingsModalOverlay) {
+            settingsModalOverlay.classList.remove('hidden');
+        } else if (settingsPanel) {
+            settingsPanel.classList.remove('hidden');
         }
-        
-        // If opening panel on mobile, ensure the FAB menu is closed
-        if (window.innerWidth <= 480 && !isHidden) {
+        if (window.innerWidth <= 480 && floatingControls) {
             floatingControls.classList.remove('fabs-expanded');
         }
+    }
+
+    function closeSettings() {
+        if (settingsModalOverlay) {
+            settingsModalOverlay.classList.add('hidden');
+        } else if (settingsPanel) {
+            settingsPanel.classList.add('hidden');
+        }
+    }
+
+    function toggleSettings() {
+        const isCurrentlyHidden = settingsModalOverlay ? settingsModalOverlay.classList.contains('hidden') : settingsPanel.classList.contains('hidden');
+        if (isCurrentlyHidden) {
+            openSettings();
+        } else {
+            closeSettings();
+        }
+    }
+
+    settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSettings();
     });
+
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeSettings();
+        });
+    }
 
     // Page Indicator Toggle
     togglePageIndicator.addEventListener('change', (e) => {
@@ -401,14 +428,21 @@ document.addEventListener('DOMContentLoaded', () => {
         applyColorFilters();
     });
 
+    // Close modal when clicking directly on the dark overlay backdrop (outside the modal card)
+    if (settingsModalOverlay) {
+        settingsModalOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsModalOverlay) {
+                closeSettings();
+            }
+        });
+    }
+
     // Close popups when clicking outside
     document.addEventListener('click', (e) => {
-        // Close settings panel if click is outside
-        if (!settingsPanel.classList.contains('hidden') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
-             settingsPanel.classList.add('hidden');
-             if (window.innerWidth > 480) {
-                floatingControls.classList.remove('shifted-for-panel');
-             }
+        // Fallback close settings modal if click is outside modal card and outside settingsBtn
+        const isSettingsOpen = settingsModalOverlay ? !settingsModalOverlay.classList.contains('hidden') : !settingsPanel.classList.contains('hidden');
+        if (isSettingsOpen && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+            closeSettings();
         }
         // Close mobile FAB menu if click is outside
         if (floatingControls.classList.contains('fabs-expanded') && !floatingControls.contains(e.target)) {
@@ -519,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openToc() {
         if (tocSidebar) tocSidebar.classList.remove('hidden');
         if (tocBackdrop) tocBackdrop.classList.remove('hidden');
-        if (settingsPanel) settingsPanel.classList.add('hidden');
+        closeSettings();
     }
 
     if (tocToggleBtn) tocToggleBtn.addEventListener('click', (e) => {
@@ -638,8 +672,8 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'Escape':
                 if (tocSidebar && !tocSidebar.classList.contains('hidden')) {
                     closeToc();
-                } else if (!settingsPanel.classList.contains('hidden')) {
-                    settingsPanel.classList.add('hidden');
+                } else if ((settingsModalOverlay && !settingsModalOverlay.classList.contains('hidden')) || (settingsPanel && !settingsPanel.classList.contains('hidden'))) {
+                    closeSettings();
                 } else {
                     window.location.href = '/';
                 }

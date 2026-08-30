@@ -107,63 +107,69 @@
         </a>
     </div>
 
-    <!-- Settings Panel (Now an Overlay) -->
-    <div id="settings-panel" class="hidden">
-        <div class="settings-header">
-            <h2>설정</h2>
-        </div>
-        <div class="settings-panel-content">
-            <div class="settings-section">
-                <h4>표시</h4>
-                <div class="setting-item">
-                    <label for="toggle-page-indicator">페이지 표시</label>
-                    <input type="checkbox" id="toggle-page-indicator" checked>
+    <!-- Settings Modal Overlay (ponytail: Centered glassmorphic modal with click-outside-to-close) -->
+    <div id="settings-modal-overlay" class="modal-overlay hidden">
+        <div id="settings-panel" class="settings-modal-card">
+            <div class="settings-modal-header">
+                <div class="settings-modal-title">
+                    <span class="settings-title-icon">⚙️</span>
+                    <h3>뷰어 설정</h3>
                 </div>
+                <button id="close-settings-btn" class="settings-close-btn" aria-label="닫기">&times;</button>
             </div>
-            <div class="settings-section">
-                <h4>화면 맞춤</h4>
-                <div class="button-group">
-                    <button id="fit-to-width">너비</button>
-                    <button id="fit-to-height">높이</button>
+            <div class="settings-panel-content">
+                <div class="settings-section">
+                    <h4>화면 맞춤</h4>
+                    <div class="button-group">
+                        <button id="fit-to-width">너비 맞춤</button>
+                        <button id="fit-to-height">높이 맞춤</button>
+                    </div>
                 </div>
-            </div>
-            <div class="settings-section">
-                <h4>페이지 레이아웃</h4>
-                <div class="button-group">
-                    <button id="view-one-page">1P</button>
-                    <button id="view-two-page-ltr">2P (좌->우)</button>
-                    <button id="view-two-page-rtl">2P (우->좌)</button>
+                <div class="settings-section">
+                    <h4>페이지 레이아웃</h4>
+                    <div class="button-group">
+                        <button id="view-one-page">1P</button>
+                        <button id="view-two-page-ltr">2P (좌→우)</button>
+                        <button id="view-two-page-rtl">2P (우→좌)</button>
+                    </div>
                 </div>
-            </div>
-            <!-- ponytail: Sharpen Filter Setting (Off / Mild / Strong) -->
-            <div class="settings-section">
-                <h4>선명도 (샤픈)</h4>
-                <div class="button-group" id="sharpen-button-group">
-                    <button id="sharpen-off" class="active">끄기</button>
-                    <button id="sharpen-mild">보통</button>
-                    <button id="sharpen-strong">강하게</button>
+                <!-- ponytail: Sharpen Filter Setting (Off / Mild / Strong) -->
+                <div class="settings-section">
+                    <h4>선명도 (샤픈)</h4>
+                    <div class="button-group" id="sharpen-button-group">
+                        <button id="sharpen-off" class="active">끄기</button>
+                        <button id="sharpen-mild">보통</button>
+                        <button id="sharpen-strong">강하게</button>
+                    </div>
                 </div>
-            </div>
-            <div id="color-settings-section" class="settings-section">
-                <div class="section-title-wrapper">
-                    <h4>색상</h4>
-                    <button id="reset-color-settings">초기화</button>
+                <div id="color-settings-section" class="settings-section">
+                    <div class="section-title-wrapper">
+                        <h4>화면 색조 및 보정</h4>
+                        <button id="reset-color-settings">초기화</button>
+                    </div>
+                    <div class="setting-item">
+                        <label for="brightness-slider">밝기</label>
+                        <input type="range" id="brightness-slider" min="50" max="200" value="100">
+                    </div>
+                    <div class="setting-item">
+                        <label for="contrast-slider">대비</label>
+                        <input type="range" id="contrast-slider" min="50" max="200" value="100">
+                    </div>
+                    <div class="setting-item">
+                        <label for="saturation-slider">채도</label>
+                        <input type="range" id="saturation-slider" min="0" max="200" value="100">
+                    </div>
+                    <div class="setting-item toggle-item">
+                        <label for="invert-colors-toggle">색상 반전</label>
+                        <input type="checkbox" id="invert-colors-toggle">
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label for="brightness-slider">밝기</label>
-                    <input type="range" id="brightness-slider" min="50" max="200" value="100">
-                </div>
-                <div class="setting-item">
-                    <label for="contrast-slider">대비</label>
-                    <input type="range" id="contrast-slider" min="50" max="200" value="100">
-                </div>
-                <div class="setting-item">
-                    <label for="saturation-slider">채도</label>
-                    <input type="range" id="saturation-slider" min="0" max="200" value="100">
-                </div>
-                <div class="setting-item">
-                    <label for="invert-colors-toggle">색상 반전</label>
-                    <input type="checkbox" id="invert-colors-toggle">
+                <div class="settings-section">
+                    <h4>표시</h4>
+                    <div class="setting-item toggle-item">
+                        <label for="toggle-page-indicator">페이지 번호 표시</label>
+                        <input type="checkbox" id="toggle-page-indicator" checked>
+                    </div>
                 </div>
             </div>
         </div>
