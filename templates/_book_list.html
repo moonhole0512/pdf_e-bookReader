@@ -1,19 +1,23 @@
 <div class="book-grid">
     {% for group in all_groups %}
+        {% set target_file_id = group.latest_file.id if group.latest_file else group.files[0].id %}
         <div class="book-card" 
              data-is-group="true" 
              data-status="{{ group.status }}"
              data-volume-count="{{ group.volume_count }}" 
-             data-single-url="{{ url_for('reader.reader_view', file_id=group.files[0].id) if group.volume_count == 1 else '' }}"
+             data-single-url="{{ url_for('reader.reader_view', file_id=target_file_id) }}"
+             data-target-url="{{ url_for('reader.reader_view', file_id=target_file_id) }}"
              data-volumes='{{ group.files | tojson }}'
-             data-series-title="{{ group.book.title }}">
+             data-series-title="{{ group.book.title }}"
+             data-last-read="{{ group.last_read_at.timestamp() if group.last_read_at else 0 }}"
+             title="{{ group.book.title }} - 클릭하여 마지막 읽은 지점으로 바로 이동">
             
             <div class="book-cover-container">
                 <img src="{{ group.cover_file.cover_url or group.cover_file.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ group.book.title }}" loading="lazy">
                 <div class="book-spine-crease"></div>
                 
                 {% if group.volume_count > 1 %}
-                <div class="volume-badge">{{ group.volume_count }}권</div>
+                <div class="volume-badge volume-select-trigger" title="클릭하여 다른 권 선택 (전 {{ group.volume_count }}권)">{{ group.volume_count }}권</div>
                 {% endif %}
 
                 {% if group.status == 'completed' %}

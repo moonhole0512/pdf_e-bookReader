@@ -196,12 +196,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- UI & State Update Functions ---
+    function updateScrubberUI() {
+        if (!pdfDoc || pdfDoc.numPages <= 0) return;
+        const scrubberProgress = document.getElementById('scrubber-progress');
+        const scrubberThumb = document.getElementById('scrubber-thumb');
+        const pct = Math.min(100, Math.max(0, (pageNum / pdfDoc.numPages) * 100));
+        if (scrubberProgress) scrubberProgress.style.width = `${pct}%`;
+        if (scrubberThumb) scrubberThumb.style.left = `${pct}%`;
+    }
+
     function updatePageNumUI() {
         let pageString = pageNum;
         if (viewMode !== 'one' && pageNum + 1 <= pdfDoc.numPages) {
             pageString = (viewMode === 'ltr') ? `${pageNum}-${pageNum + 1}` : `${pageNum + 1}-${pageNum}`;
         }
         pageNumSpan.textContent = pageString;
+        updateScrubberUI();
     }
 
     const updateStatus = debounce(() => {
@@ -371,6 +381,181 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Click & Tap Navigation Zones (Left 25%, Center 50%, Right 25%) ---
+    const zonePrev = document.getElementById('zone-prev');
+    const zoneCenter = document.getElementById('zone-center');
+    const zoneNext = document.getElementById('zone-next');
+
+    let isControlsVisible = true;
+    function toggleReaderControls() {
+        isControlsVisible = !isControlsVisible;
+        floatingControls.classList.toggle('reader-controls-hidden', !isControlsVisible);
+        pageIndicator.classList.toggle('reader-controls-hidden', !isControlsVisible);
+        const scrubber = document.getElementById('reader-scrubber-container');
+        if (scrubber) scrubber.classList.toggle('reader-controls-hidden', !isControlsVisible);
+    }
+
+    if (zonePrev) {
+        zonePrev.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (viewMode === 'rtl') onNextPage(); else onPrevPage();
+        });
+    }
+    if (zoneNext) {
+        zoneNext.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (viewMode === 'rtl') onPrevPage(); else onNextPage();
+        });
+    }
+    if (zoneCenter) {
+        zoneCenter.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleReaderControls();
+        });
+    }
+
+    // --- Scrubber Bar Interaction ---
+    const scrubberTrack = document.getElementById('scrubber-track');
+    const scrubberTooltip = document.getElementById('scrubber-tooltip');
+
+    if (scrubberTrack) {
+        const handleScrub = (e) => {
+            if (!pdfDoc || pdfDoc.numPages <= 0) return;
+            const rect = scrubberTrack.getBoundingClientRect();
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            let targetPage = Math.max(1, Math.min(pdfDoc.numPages, Math.round(ratio * pdfDoc.numPages)));
+            if (viewMode !== 'one' && targetPage % 2 === 0 && targetPage > 1) targetPage--;
+            if (targetPage !== pageNum) {
+                pageNum = targetPage;
+                renderQueue(pageNum);
+                updateStatus();
+            }
+        };
+
+        let isScrubbing = false;
+        scrubberTrack.addEventListener('mousedown', (e) => {
+            isScrubbing = true;
+            handleScrub(e);
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isScrubbing) handleScrub(e);
+        });
+        window.addEventListener('mouseup', () => {
+            isScrubbing = false;
+        });
+
+        scrubberTrack.addEventListener('mousemove', (e) => {
+            if (!pdfDoc || pdfDoc.numPages <= 0) return;
+            const rect = scrubberTrack.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const hoverPage = Math.max(1, Math.min(pdfDoc.numPages, Math.round(ratio * pdfDoc.numPages)));
+            if (scrubberTooltip) {
+                scrubberTooltip.textContent = `p. ${hoverPage} / ${pdfDoc.numPages}`;
+                scrubberTooltip.style.left = `${e.clientX}px`;
+                scrubberTooltip.classList.remove('hidden');
+            }
+        });
+        scrubberTrack.addEventListener('mouseleave', () => {
+            if (scrubberTooltip) scrubberTooltip.classList.add('hidden');
+        });
+
+        scrubberTrack.addEventListener('touchstart', (e) => {
+            handleScrub(e);
+        }, { passive: true });
+        scrubberTrack.addEventListener('touchmove', (e) => {
+            handleScrub(e);
+        }, { passive: true });
+    }
+
+    // --- TOC / Bookmarks Navigation ---
+    const tocToggleBtn = document.getElementById('toc-toggle-btn');
+    const tocSidebar = document.getElementById('toc-sidebar');
+    const tocBackdrop = document.getElementById('toc-backdrop');
+    const closeTocBtn = document.getElementById('close-toc-btn');
+    const tocList = document.getElementById('toc-list');
+    const tocEmptyMsg = document.getElementById('toc-empty-msg');
+
+    function closeToc() {
+        if (tocSidebar) tocSidebar.classList.add('hidden');
+        if (tocBackdrop) tocBackdrop.classList.add('hidden');
+    }
+
+    function openToc() {
+        if (tocSidebar) tocSidebar.classList.remove('hidden');
+        if (tocBackdrop) tocBackdrop.classList.remove('hidden');
+        if (settingsPanel) settingsPanel.classList.add('hidden');
+    }
+
+    if (tocToggleBtn) tocToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openToc();
+    });
+    if (closeTocBtn) closeTocBtn.addEventListener('click', closeToc);
+    if (tocBackdrop) tocBackdrop.addEventListener('click', closeToc);
+
+    async function loadOutline() {
+        if (!pdfDoc) return;
+        try {
+            const outline = await pdfDoc.getOutline();
+            if (!outline || outline.length === 0) {
+                if (tocEmptyMsg) tocEmptyMsg.classList.remove('hidden');
+                return;
+            }
+            if (tocEmptyMsg) tocEmptyMsg.classList.add('hidden');
+            if (tocList) {
+                tocList.innerHTML = '';
+                for (const item of outline) {
+                    const li = document.createElement('li');
+                    li.className = 'toc-item';
+                    li.textContent = item.title;
+                    li.addEventListener('click', async () => {
+                        closeToc();
+                        try {
+                            if (typeof item.dest === 'string') {
+                                const dest = await pdfDoc.getDestination(item.dest);
+                                if (dest) {
+                                    const pageIndex = await pdfDoc.getPageIndex(dest[0]);
+                                    pageNum = pageIndex + 1;
+                                    renderQueue(pageNum);
+                                    updateStatus();
+                                }
+                            } else if (Array.isArray(item.dest)) {
+                                const pageIndex = await pdfDoc.getPageIndex(item.dest[0]);
+                                pageNum = pageIndex + 1;
+                                renderQueue(pageNum);
+                                updateStatus();
+                            }
+                        } catch (e) {
+                            console.error('Error navigating to outline destination:', e);
+                        }
+                    });
+                    tocList.appendChild(li);
+                }
+            }
+        } catch (err) {
+            console.log('No outline in PDF or error loading outline:', err);
+            if (tocEmptyMsg) tocEmptyMsg.classList.remove('hidden');
+        }
+    }
+
+    // --- Fullscreen Toggle ---
+    const fullscreenToggleBtn = document.getElementById('fullscreen-toggle-btn');
+    const fullscreenIcon = document.getElementById('fullscreen-icon');
+
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+            if (fullscreenIcon) fullscreenIcon.textContent = '✕';
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            }
+            if (fullscreenIcon) fullscreenIcon.textContent = '⛶';
+        }
+    }
+    if (fullscreenToggleBtn) fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
+
     // Window Resize
     window.addEventListener('resize', debounce(() => {
         if (fitMode !== 'custom') {
@@ -378,22 +563,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 250));
 
-    // Keyboard Navigation
+    // Enhanced Keyboard Navigation
     document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         switch (e.key) {
-            case 'ArrowLeft': onPrevPage(); e.preventDefault(); break;
-            case 'ArrowRight': onNextPage(); e.preventDefault(); break;
+            case 'ArrowLeft':
+            case 'PageUp':
+                if (viewMode === 'rtl') onNextPage(); else onPrevPage();
+                e.preventDefault();
+                break;
+            case 'ArrowRight':
+            case 'PageDown':
+                if (viewMode === 'rtl') onPrevPage(); else onNextPage();
+                e.preventDefault();
+                break;
+            case ' ': // Space bar
+                if (e.shiftKey) {
+                    if (viewMode === 'rtl') onNextPage(); else onPrevPage();
+                } else {
+                    if (viewMode === 'rtl') onPrevPage(); else onNextPage();
+                }
+                e.preventDefault();
+                break;
+            case 'f':
+            case 'F':
+                toggleFullscreen();
+                e.preventDefault();
+                break;
+            case 'm':
+            case 'M':
+                if (tocSidebar && !tocSidebar.classList.contains('hidden')) closeToc(); else openToc();
+                e.preventDefault();
+                break;
+            case 's':
+            case 'S':
+                settingsBtn.click();
+                e.preventDefault();
+                break;
+            case 'Escape':
+                if (tocSidebar && !tocSidebar.classList.contains('hidden')) {
+                    closeToc();
+                } else if (!settingsPanel.classList.contains('hidden')) {
+                    settingsPanel.classList.add('hidden');
+                } else {
+                    window.location.href = '/';
+                }
+                e.preventDefault();
+                break;
         }
     });
 
     // Swipe Navigation
     let startX = 0, startY = 0;
-    const swipeThreshold = 50;
+    const swipeThreshold = 40;
 
     document.addEventListener('touchstart', (e) => {
-        // Ignore swipes if they start on interactive elements
-        if (e.target.closest('#settings-panel, #floating-controls, button, input, a')) {
+        if (e.target.closest('#settings-panel, #floating-controls, #toc-sidebar, button, input, a, #reader-scrubber-container')) {
             startX = 0;
             startY = 0;
             return;
@@ -403,42 +628,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-        if (startX === 0) return; // Swipe was ignored
+        if (startX === 0) return;
 
         const endX = e.changedTouches[0].clientX;
         const endY = e.changedTouches[0].clientY;
         const diffX = startX - endX;
         const diffY = startY - endY;
 
-        // Only consider horizontal swipes
         if (Math.abs(diffX) <= Math.abs(diffY) || Math.abs(diffX) <= swipeThreshold) {
             startX = 0; startY = 0;
             return;
         }
 
-        const container = document.getElementById('reader-container');
-        const isZoomed = container.scrollWidth > container.clientWidth;
-        
-        const atScrollStart = container.scrollLeft < 1;
-        // Use a more robust check for the end of the scroll, allowing for a small tolerance
-        const atScrollEnd = (container.scrollLeft + container.clientWidth) >= (container.scrollWidth - 1);
+        const isSwipeRight = diffX < 0; // Swipe left to right
+        const isSwipeLeft = diffX > 0; // Swipe right to left
 
-        const isSwipeRight = diffX < 0; // Swipe from left to right -> Go to PREVIOUS page
-        const isSwipeLeft = diffX > 0; // Swipe from right to left -> Go to NEXT page
-
-        if (!isZoomed) {
-            // Not zoomed, default behavior: turn page on any horizontal swipe
-            if (isSwipeLeft) { onNextPage(); } else { onPrevPage(); }
-        } else {
-            // Is zoomed, only turn page if at the edge of the scroll
-            if (isSwipeLeft && atScrollEnd) {
-                onNextPage();
-            } else if (isSwipeRight && atScrollStart) {
-                onPrevPage();
-            }
+        if (isSwipeLeft) {
+            if (viewMode === 'rtl') onPrevPage(); else onNextPage();
+        } else if (isSwipeRight) {
+            if (viewMode === 'rtl') onNextPage(); else onPrevPage();
         }
         
-        // Reset for the next potential swipe
         startX = 0; 
         startY = 0;
     });
@@ -449,6 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfDoc = doc;
         pageCountSpan.textContent = pdfDoc.numPages;
         renderQueue(pageNum);
+        loadOutline();
     }).finally(() => {
         setTimeout(() => { 
             loaderOverlay.classList.add('hidden');

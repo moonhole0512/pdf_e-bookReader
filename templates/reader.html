@@ -16,15 +16,48 @@
             <p>로딩 중...</p>
         </div>
         <div id="pdf-viewer"></div>
+
+        <!-- Click & Tap Navigation Zones (Left 25%, Center 50%, Right 25%) -->
+        <div id="reader-touch-zones">
+            <div id="zone-prev" class="touch-zone touch-zone-left" title="이전 페이지 (클릭 또는 탭)">
+                <div class="zone-hint">‹</div>
+            </div>
+            <div id="zone-center" class="touch-zone touch-zone-center" title="메뉴 토글 (클릭 또는 탭)"></div>
+            <div id="zone-next" class="touch-zone touch-zone-right" title="다음 페이지 (클릭 또는 탭)">
+                <div class="zone-hint">›</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Timeline Scrubber -->
+    <div id="reader-scrubber-container">
+        <div id="scrubber-track">
+            <div id="scrubber-progress"></div>
+            <div id="scrubber-thumb"></div>
+        </div>
+        <div id="scrubber-tooltip" class="hidden">p. 1</div>
     </div>
 
     <div id="page-indicator">
         <span id="page-num"></span> / <span id="page-count"></span>
     </div>
 
+    <!-- TOC / Bookmarks Sidebar Drawer -->
+    <div id="toc-sidebar" class="sidebar-drawer hidden">
+        <div class="sidebar-header">
+            <h3>📖 목차</h3>
+            <button id="close-toc-btn" class="close-x-btn">&times;</button>
+        </div>
+        <div class="sidebar-body">
+            <div id="toc-empty-msg" class="hidden">이 책에는 등록된 목차가 없습니다.</div>
+            <ul id="toc-list"></ul>
+        </div>
+    </div>
+    <div id="toc-backdrop" class="modal-backdrop hidden"></div>
+
     <!-- Floating Action Buttons (Bottom-Right) -->
     <div id="floating-controls">
-        <!-- The new toggle button for mobile -->
+        <!-- The toggle button for mobile -->
         <button id="fab-toggle-btn" class="fab">
             <div class="icon-ellipsis">
                 <div></div>
@@ -33,13 +66,19 @@
             </div>
         </button>
 
-        <!-- The 4 functional buttons -->
-        <button id="settings-btn" class="fab">
+        <!-- The functional buttons -->
+        <button id="toc-toggle-btn" class="fab" title="목차 열기 (단축키: M)">
+            <span style="font-size: 16px;">📑</span>
+        </button>
+        <button id="fullscreen-toggle-btn" class="fab" title="전체화면 전환 (단축키: F)">
+            <span id="fullscreen-icon" style="font-size: 15px;">⛶</span>
+        </button>
+        <button id="settings-btn" class="fab" title="설정 (단축키: S)">
             <div class="icon-gear"></div>
         </button>
-        <button id="zoom-in" class="fab">+</button>
-        <button id="zoom-out" class="fab">-</button>
-        <a href="{{ url_for('library.index') }}" id="list-btn" class="fab">
+        <button id="zoom-in" class="fab" title="확대">+</button>
+        <button id="zoom-out" class="fab" title="축소">-</button>
+        <a href="{{ url_for('library.index') }}" id="list-btn" class="fab" title="서재로 돌아가기 (단축키: Esc)">
             <div class="icon-list">
                 <div></div>
                 <div></div>

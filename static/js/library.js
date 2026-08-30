@@ -344,17 +344,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // Main click handler for cards and buttons
     document.body.addEventListener('click', (e) => {
         // For opening ISBN modal
-        if (e.target.matches('.isbn-btn')) {
+        if (e.target.matches('.isbn-btn') || e.target.closest('.isbn-btn')) {
             openIsbnModal(e);
             return;
         }
 
-        // For opening Volume Select modal
+        // For opening Volume Select modal when clicking volume badge
+        const volumeBadge = e.target.closest('.volume-badge');
+        if (volumeBadge) {
+            const card = volumeBadge.closest('.book-card[data-is-group="true"]');
+            if (card && parseInt(card.dataset.volumeCount, 10) > 1) {
+                e.stopPropagation();
+                openVolumeModal(card);
+                return;
+            }
+        }
+
+        // Clicking the Reading Lounge Hero card: navigate directly to reader
+        const loungeCard = e.target.closest('.reading-lounge-card');
+        if (loungeCard && !e.target.closest('a') && !e.target.closest('button')) {
+            if (loungeCard.dataset.url) {
+                window.location.href = loungeCard.dataset.url;
+                return;
+            }
+        }
+
+        // Clicking any book card: navigate directly to last read position (or 1st volume)
         const card = e.target.closest('.book-card[data-is-group="true"]');
         if (card) {
-            const volumeCount = parseInt(card.dataset.volumeCount, 10);
-            if (volumeCount === 1) {
-                window.location.href = card.dataset.singleUrl;
+            const targetUrl = card.dataset.targetUrl || card.dataset.singleUrl;
+            if (targetUrl) {
+                window.location.href = targetUrl;
             } else {
                 openVolumeModal(card);
             }
@@ -803,6 +823,69 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 });
             });
+        }
+
+        // --- Bookshelf Sorting (Title, Recent, Volumes, Unread) ---
+        const sortSelect = document.getElementById('shelf-sort-select');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', () => {
+                const sortBy = sortSelect.value;
+                const gridContainer = document.querySelector('.all-books-shelf .book-grid');
+                if (!gridContainer) return;
+                const cards = Array.from(gridContainer.querySelectorAll('.book-card'));
+
+                cards.sort((a, b) => {
+                    if (sortBy === 'title') {
+                        const titleA = a.dataset.seriesTitle || '';
+                        const titleB = b.dataset.seriesTitle || '';
+                        return titleA.localeCompare(titleB, 'ko');
+                    } else if (sortBy === 'recent') {
+                        const timeA = parseFloat(a.dataset.lastRead || 0);
+                        const timeB = parseFloat(b.dataset.lastRead || 0);
+                        return timeB - timeA;
+                    } else if (sortBy === 'volumes') {
+                        const volA = parseInt(a.dataset.volumeCount || 1, 10);
+                        const volB = parseInt(b.dataset.volumeCount || 1, 10);
+                        return volB - volA;
+                    } else if (sortBy === 'unread') {
+                        const statusOrder = { 'unread': 1, 'reading': 2, 'completed': 3 };
+                        const orderA = statusOrder[a.dataset.status] || 2;
+                        const orderB = statusOrder[b.dataset.status] || 2;
+                        return orderA - orderB;
+                    }
+                    return 0;
+                });
+
+                cards.forEach(card => gridContainer.appendChild(card));
+            });
+        }
+
+        // --- View Mode Toggle (Grid vs List) ---
+        const gridBtn = document.getElementById('view-mode-grid-btn');
+        const listBtn = document.getElementById('view-mode-list-btn');
+        const allBooksGrid = document.querySelector('.all-books-shelf .book-grid');
+        const VIEW_MODE_KEY = 'eBookLibraryViewMode';
+
+        function setLibraryViewMode(mode) {
+            if (!allBooksGrid) return;
+            if (mode === 'list') {
+                allBooksGrid.classList.add('book-list-view');
+                if (listBtn) listBtn.classList.add('active');
+                if (gridBtn) gridBtn.classList.remove('active');
+            } else {
+                allBooksGrid.classList.remove('book-list-view');
+                if (gridBtn) gridBtn.classList.add('active');
+                if (listBtn) listBtn.classList.remove('active');
+            }
+            localStorage.setItem(VIEW_MODE_KEY, mode);
+        }
+
+        if (gridBtn) gridBtn.addEventListener('click', () => setLibraryViewMode('grid'));
+        if (listBtn) listBtn.addEventListener('click', () => setLibraryViewMode('list'));
+
+        const savedViewMode = localStorage.getItem(VIEW_MODE_KEY);
+        if (savedViewMode === 'list') {
+            setLibraryViewMode('list');
         }
     }
 });

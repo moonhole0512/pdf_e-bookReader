@@ -61,13 +61,18 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('isbn-modal', html)
         self.assertIn('volume-select-modal', html)
 
+        # 6. Library Sorting & View Mode Controls
+        self.assertIn('shelf-sort-select', html)
+        self.assertIn('view-mode-grid-btn', html)
+        self.assertIn('view-mode-list-btn', html)
+        self.assertIn('data-target-url', html)
+
     def test_next_volume_api_with_metadata(self):
         """Verify /api/next_volume/<file_id> returns next volume number and title."""
         with self.client.session_transaction() as sess:
             user = User.query.filter_by(username="Gruzam").first()
             sess['user_id'] = user.id
 
-        # Find a multi-volume book (e.g. 농림 or 냐루코양)
         vol1_file = File.query.filter_by(volume_number=1).filter(File.book_id.isnot(None)).first()
         self.assertIsNotNone(vol1_file)
 
@@ -78,6 +83,34 @@ class TestUIUXEnhancements(unittest.TestCase):
         if data.get('next_file_id'):
             self.assertEqual(data.get('next_volume_number'), 2)
             self.assertTrue(len(data.get('next_title', '')) > 0)
+
+    def test_reader_touch_zones_and_scrubber_and_toc(self):
+        """Verify reader view contains 3-way touch navigation zones, timeline scrubber, and TOC sidebar."""
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        file_obj = File.query.first()
+        self.assertIsNotNone(file_obj)
+
+        resp = self.client.get(f'/reader/{file_obj.id}')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+
+        # Touch & click navigation zones
+        self.assertIn('reader-touch-zones', html)
+        self.assertIn('zone-prev', html)
+        self.assertIn('zone-center', html)
+        self.assertIn('zone-next', html)
+
+        # Bottom scrubber
+        self.assertIn('reader-scrubber-container', html)
+        self.assertIn('scrubber-track', html)
+
+        # TOC sidebar drawer
+        self.assertIn('toc-sidebar', html)
+        self.assertIn('toc-toggle-btn', html)
+        self.assertIn('fullscreen-toggle-btn', html)
 
 if __name__ == '__main__':
     unittest.main()
