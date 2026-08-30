@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pageNumPending = null;
     let fitMode = savedFitMode || 'width';
     let scale = !isNaN(savedScale) ? savedScale : 1.5;
+    let lastRenderedScale = scale;
     let viewMode = savedViewMode || 'one'; // 'one', 'ltr', 'rtl'
 
     // --- Load Color & Sharpen Settings ---
@@ -150,14 +151,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentScale = scale;
             if (fitMode !== 'custom') {
                 const unscaledViewport = page.getViewport({ scale: 1 });
-                const containerWidth = container.clientWidth - 20;
-                const containerHeight = container.clientHeight - 20;
+                const availableWidth = Math.max(100, container.clientWidth - 20);
+                const availableHeight = Math.max(100, container.clientHeight - 20);
                 if (fitMode === 'width') {
-                    currentScale = containerWidth / unscaledViewport.width;
+                    const targetWidth = (viewMode !== 'one') ? (availableWidth / 2) : availableWidth;
+                    currentScale = targetWidth / unscaledViewport.width;
                 } else if (fitMode === 'height') {
-                    currentScale = containerHeight / unscaledViewport.height;
+                    currentScale = availableHeight / unscaledViewport.height;
                 }
             }
+            lastRenderedScale = currentScale;
             const viewport = page.getViewport({ scale: currentScale });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
@@ -270,8 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function changeScale(mod) {
+        // ponytail: Always zoom relative to the currently visible screen scale (even in fit-to-width/height mode)
+        const baseScale = (fitMode !== 'custom' && lastRenderedScale > 0) ? lastRenderedScale : scale;
+        scale = Math.max(0.2, Math.min(5, Math.round((baseScale + mod) * 100) / 100));
+        lastRenderedScale = scale;
         fitMode = 'custom';
-        scale = Math.max(0.2, Math.min(5, scale + mod));
         localStorage.setItem(FIT_MODE_KEY, 'custom');
         localStorage.setItem(SCALE_KEY, scale);
         updateFitModeUI();
@@ -592,6 +598,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (viewMode === 'rtl') onPrevPage(); else onNextPage();
                 }
+                e.preventDefault();
+                break;
+            case '+':
+            case '=':
+                changeScale(0.2);
+                e.preventDefault();
+                break;
+            case '-':
+            case '_':
+                changeScale(-0.2);
                 e.preventDefault();
                 break;
             case 's':

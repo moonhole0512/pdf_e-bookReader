@@ -35,6 +35,7 @@
 - [x] [Implementation] Step 30: Reader Settings Overlay Modal & Click-Outside Auto-Close - Replaced legacy 320px right-sidebar drawer with a centered Apple-style glassmorphic modal overlay (`#settings-modal-overlay` with backdrop blur, rounded card, pop animation), removed obsolete `.shifted-for-panel` CSS, implemented automatic backdrop click-outside closing and circular X close button, and added `test_reader_settings_modal_overlay` (Evaluator subagent PASS)
 - [x] [Debugging] Step 31: Scrubber Progress Synchronization & Dynamic Tooltip Position Tracking - Resolved root cause where missing `#scrubber-tooltip.hidden` and global `.hidden` CSS allowed static "p. 1" dummy text to remain visible on load; added global `.hidden` and `#scrubber-tooltip.hidden` rules, emptied HTML tooltip markup, implemented dynamic position/page tracking with `updateTooltip(clientX, targetPage)` on mouse/touch scrubbing, ensured clean hide on release/leave, and synced scrubber progress and thumb with `updateScrubberUI()` on load and page flips (Evaluator subagent PASS)
 - [x] [Implementation] Step 32: Reader Floating Dock Redesign & YAGNI Cleanup - Replaced 6 bulky vertical stacked circular buttons with an Apple-style horizontal glassmorphic pill dock (`.reader-floating-dock`), completely eliminated unneeded TOC drawer/button and fullscreen toggle (as requested for scanned PDF books), streamlined controls to 4 sleek inline SVG actions (Exit to Library, Zoom Out, Zoom In, Settings), and updated `test_reader_touch_zones_and_scrubber_and_toc` (Evaluator subagent PASS)
+- [x] [Implementation] Step 33: Floating Dock Top-Right Repositioning & Relative Zoom Enhancement - Moved floating dock to top-right (`top: 15px; right: 20px;`) aligning with page indicator to form a balanced top header and 100% eliminate overlap with the bottom scrubber; updated Zen mode upward fade (`translateY(-8px) !important;`); upgraded `changeScale` in `reader.js` to calculate zoom relative to `lastRenderedScale` so zooming from fit-to-width/fit-to-height smoothly scales the visible page instead of jumping to arbitrary scale values, added keyboard shortcuts (+, -, =, _), and added `test_floating_dock_top_right_and_relative_zoom` (Evaluator subagent PASS)
 
 ## In progress
 
@@ -44,8 +45,8 @@
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
-- 27/27 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 32 items and confirmed PASS.
+- 28/28 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
+- Evaluator subagent verified Step 33 items and confirmed PASS.
 
 
 

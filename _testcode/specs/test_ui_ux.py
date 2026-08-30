@@ -348,5 +348,28 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('function hideTooltip', js)
         self.assertIn('updateScrubberUI()', js)
 
+    def test_floating_dock_top_right_and_relative_zoom(self):
+        """Verify floating dock is positioned top-right (no collision with bottom scrubber) and zoom operates relative to visible scale."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. Dock positioned at top-right, avoiding bottom scrubber bar
+        self.assertIn('#floating-controls.reader-floating-dock {', css)
+        dock_idx = css.index('#floating-controls.reader-floating-dock {')
+        dock_block = css[dock_idx:dock_idx + 400]
+        self.assertIn('top: 15px;', dock_block)
+        self.assertIn('right: 20px;', dock_block)
+
+        # 2. Relative zoom calculation in JavaScript
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        self.assertIn('let lastRenderedScale = scale;', js)
+        self.assertIn('lastRenderedScale = currentScale;', js)
+        self.assertIn('baseScale = (fitMode !== \'custom\' && lastRenderedScale > 0) ? lastRenderedScale : scale;', js)
+
+        # 3. Zen / Immersion mode: controls fade upward in unison (-8px), no lingering bottom +12px override
+        self.assertNotIn('transform: translateY(12px)', css)
+        self.assertIn('transform: translateY(-8px) !important;', css)
+
 if __name__ == '__main__':
     unittest.main()

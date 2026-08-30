@@ -1247,17 +1247,17 @@ header nav a:hover {
     pointer-events: none;
 }
 
-/* --- Apple-Style Glass Floating Controls (ponytail: Modern Pill Dock) --- */
+/* --- Apple-Style Glass Floating Controls (ponytail: Modern Top-Right Pill Dock) --- */
 #floating-controls.reader-floating-dock {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    top: 15px;
+    right: 20px;
     z-index: 100;
     display: inline-flex;
     flex-direction: row;
     align-items: center;
     gap: 4px;
-    padding: 5px 8px;
+    padding: 4px 8px;
     background: rgba(18, 20, 26, 0.82);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -1270,7 +1270,7 @@ header nav a:hover {
 #floating-controls.reader-controls-hidden {
     opacity: 0;
     pointer-events: none;
-    transform: translateY(8px);
+    transform: translateY(-8px);
 }
 
 .dock-btn {
@@ -1469,9 +1469,9 @@ header nav a:hover {
 /* --- Mobile Reader Floating Dock --- */
 @media (max-width: 480px) {
     #floating-controls.reader-floating-dock {
-        bottom: 16px;
-        right: 16px;
-        padding: 4px 6px;
+        top: 12px;
+        right: 12px;
+        padding: 3px 6px;
         gap: 2px;
         border-radius: 20px;
     }
@@ -2343,11 +2343,11 @@ header nav a:hover {
     transform: translateY(-8px) !important;
 }
 
-/* 우하단 플로팅 컨트롤: 제자리에서 은은하게 아래로 스르륵 */
+/* 우상단 플로팅 컨트롤: 왼쪽 위 페이지 정보와 함께 은은하게 위로 스르륵 */
 #floating-controls.reader-controls-hidden {
     opacity: 0 !important;
     pointer-events: none !important;
-    transform: translateY(12px) !important;
+    transform: translateY(-8px) !important;
 }
 
 /* --- Sort Select & View Mode Toggle --- */
