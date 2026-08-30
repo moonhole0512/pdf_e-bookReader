@@ -381,6 +381,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Suppress parent card tooltip when hovering over ISBN button to prevent tooltip collision
+    document.body.addEventListener('mouseover', (e) => {
+        const isbnBtn = e.target.closest('.isbn-btn');
+        if (isbnBtn) {
+            const parentCard = isbnBtn.closest('.book-card');
+            if (parentCard && parentCard.hasAttribute('title')) {
+                parentCard.dataset.savedTitle = parentCard.getAttribute('title');
+                parentCard.removeAttribute('title');
+            }
+        }
+    });
+
+    document.body.addEventListener('mouseout', (e) => {
+        const isbnBtn = e.target.closest('.isbn-btn');
+        if (isbnBtn) {
+            const parentCard = isbnBtn.closest('.book-card');
+            if (parentCard && parentCard.dataset.savedTitle) {
+                parentCard.setAttribute('title', parentCard.dataset.savedTitle);
+                delete parentCard.dataset.savedTitle;
+            }
+        }
+    });
+
     // Listeners for ISBN modal
     closeIsbnModalBtn.addEventListener('click', closeIsbnModal);
     isbnModal.addEventListener('click', (e) => {

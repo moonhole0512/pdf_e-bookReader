@@ -1581,18 +1581,6 @@ header nav a:hover {
     border-radius: 4px;
     z-index: 2;
 }
-.reading-badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    background: #007bff;
-    color: #fff;
-    font-size: 10px;
-    font-weight: bold;
-    padding: 2px 6px;
-    border-radius: 4px;
-    z-index: 2;
-}
 .vol-thumb-wrapper {
     position: relative;
 }
@@ -1970,14 +1958,27 @@ header nav a:hover {
     position: absolute;
     bottom: 8px;
     left: 8px;
-    background: rgba(10, 132, 255, 0.9);
-    backdrop-filter: blur(4px);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 4px;
+    top: auto !important;
+    right: auto !important;
+    height: auto !important;
+    max-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: linear-gradient(135deg, rgba(10, 132, 255, 0.95), rgba(0, 113, 227, 0.95));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 8px rgba(10, 132, 255, 0.35);
     z-index: 5;
+    white-space: nowrap;
+    line-height: 1;
+    pointer-events: none;
 }
 
 /* --- Click & Tap Navigation Zones (Left 25%, Center 50%, Right 25%) --- */
