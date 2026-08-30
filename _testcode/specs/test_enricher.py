@@ -119,7 +119,20 @@ class TestBookEnricher(unittest.TestCase):
         self.assertIn("早乙女姉妹", top['title'])
         self.assertIn("山本亮平", top['author'])
         self.assertEqual(top['isbn_13'], "9784088816180")
-        self.assertIn("cover500", top['thumbnail'])
+        self.assertTrue('amazon' in top['thumbnail'].lower() or 'cover' in top['thumbnail'].lower())
+
+    def test_adult_and_foreign_cover_bypass_via_amazon_cdn(self):
+        """Verify adult (19+) / restricted manga covers bypass domestic placeholders via Amazon CDN."""
+        from services.book_enricher import resolve_bypass_cover_url, isbn_13_to_10
+        # Check standard digit
+        self.assertEqual(isbn_13_to_10("9784088816180"), "4088816188")
+        # Check 'X' check digit (EAN 9780804429573 -> ISBN-10 080442957X)
+        self.assertEqual(isbn_13_to_10("9780804429573"), "080442957X")
+        # Ensure length is strictly 10 characters
+        self.assertEqual(len(isbn_13_to_10("9780804429573")), 10)
+        cover_url = resolve_bypass_cover_url("9784088816180")
+        self.assertIsNotNone(cover_url)
+        self.assertIn("images-amazon.com", cover_url)
 
 if __name__ == '__main__':
     unittest.main()

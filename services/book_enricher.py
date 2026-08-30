@@ -38,6 +38,51 @@ def isbn_10_to_13(isbn_10: str) -> str:
     check_digit = (10 - (checksum % 10)) % 10
     return core + str(check_digit)
 
+def isbn_13_to_10(isbn_13: str) -> Optional[str]:
+    """Converts a standard 13-digit ISBN (starting with 978) to a 10-digit ISBN."""
+    clean_13 = re.sub(r'[-\s]', '', str(isbn_13 or ''))
+    if len(clean_13) != 13 or not clean_13.startswith('978'):
+        return clean_13 if len(clean_13) == 10 else None
+    core = clean_13[3:12]
+    rem = sum(int(digit) * (10 - i) for i, digit in enumerate(core)) % 11
+    check_val = (11 - rem) % 11
+    check_digit = 'X' if check_val == 10 else str(check_val)
+    return core + check_digit
+
+def resolve_bypass_cover_url(isbn: Optional[str]) -> Optional[str]:
+    """
+    Bypasses domestic adult-content / out-of-print cover restrictions (19book placeholders)
+    by resolving high-resolution original covers from Amazon CDN and Google Books Direct.
+    """
+    if not isbn:
+        return None
+
+    clean = re.sub(r'[-\s]', '', str(isbn))
+    isbn_10 = clean if len(clean) == 10 else isbn_13_to_10(clean)
+    isbn_13 = clean if len(clean) == 13 else isbn_10_to_13(clean)
+
+    # 1. Try Amazon High-Res CDN (unrestricted, full-size original cover)
+    if isbn_10:
+        amazon_url = f"https://images-na.ssl-images-amazon.com/images/P/{isbn_10}.09.LZZZZZZZ.jpg"
+        try:
+            r = requests.head(amazon_url, headers=HEADERS, timeout=3)
+            if r.status_code == 200 and int(r.headers.get('content-length', 0)) > 2000:
+                return amazon_url
+        except Exception:
+            pass
+
+    # 2. Try Google Books Direct Thumbnail (no API key required, reliable front cover)
+    if isbn_13:
+        gbooks_url = f"https://books.google.com/books/content?vid=ISBN{isbn_13}&printsec=frontcover&img=1&zoom=1"
+        try:
+            r = requests.head(gbooks_url, headers=HEADERS, timeout=3)
+            if r.status_code == 200 and int(r.headers.get('content-length', 0)) > 2000:
+                return gbooks_url
+        except Exception:
+            pass
+
+    return None
+
 def has_korean(text: str) -> bool:
     """Checks if text contains any Hangul syllables."""
     return bool(re.search(r'[가-힣]', text))
@@ -149,20 +194,24 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
             elif '19book' not in first_img.lower():
                 cover_url = first_img
 
-        # 3. If cover_url is still missing (or adult 19book placeholder), synthesize from itemId & ISBN
-        if (not cover_url or '19book' in cover_url.lower()) and item_id and raw_box_isbn:
-            prefix = item_id[:5]
-            mid = item_id[5:7] if len(item_id) >= 7 else "00"
-            cover_url = f"https://image.aladin.co.kr/product/{prefix}/{mid}/cover500/{raw_box_isbn}_2.jpg"
+        if not isbn and raw_box_isbn:
+            isbn = isbn_10_to_13(raw_box_isbn) if len(raw_box_isbn) == 10 else raw_box_isbn
 
-        if cover_url:
+        if cover_url and not isbn:
             isbn_m = re.search(r'/cover\w*/([a-zA-Z0-9]+)_\d+\.', cover_url)
             if isbn_m:
                 raw_isbn = isbn_m.group(1)
                 isbn = isbn_10_to_13(raw_isbn) if len(raw_isbn) == 10 else raw_isbn
 
-        if not isbn and raw_box_isbn:
-            isbn = isbn_10_to_13(raw_box_isbn) if len(raw_box_isbn) == 10 else raw_box_isbn
+        # 3. Bypass adult (19book) restrictions or missing covers using Amazon High-Res CDN
+        if not cover_url or '19book' in cover_url.lower():
+            bypass_url = resolve_bypass_cover_url(raw_box_isbn or isbn)
+            if bypass_url:
+                cover_url = bypass_url
+            elif item_id and raw_box_isbn:
+                prefix = item_id[:5]
+                mid = item_id[5:7] if len(item_id) >= 7 else "00"
+                cover_url = f"https://image.aladin.co.kr/product/{prefix}/{mid}/cover500/{raw_box_isbn}_2.jpg"
 
         # Scoring candidate
         score = 50
@@ -234,7 +283,12 @@ def fetch_aladin_metadata(title: str, volume: Optional[int] = None, author_hint:
                     if r.status_code == 200:
                         candidates = parse_aladin_search_results(r.text, clean_t, volume)
                         if candidates:
-                            return candidates[0]
+                            top_cand = candidates[0]
+                            if not top_cand.get('cover_url') or '19book' in top_cand.get('cover_url', '').lower():
+                                bypass = resolve_bypass_cover_url(top_cand.get('isbn'))
+                                if bypass:
+                                    top_cand['cover_url'] = bypass
+                            return top_cand
                 except Exception as e:
                     logger.debug(f"Aladin search error for '{term}' p{page}: {e}")
 
@@ -397,6 +451,14 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                         })
         except Exception as e:
             logger.debug(f"Candidate search (Google) error: {e}")
+
+    # Final pass: Ensure no candidate is left with 19+ placeholder or missing cover if Amazon CDN has it
+    for r in results:
+        t = r.get('thumbnail')
+        if not t or '19book' in t.lower():
+            bypass_t = resolve_bypass_cover_url(r.get('isbn_13') or r.get('isbn_10'))
+            if bypass_t:
+                r['thumbnail'] = bypass_t
 
     return results
 
