@@ -287,11 +287,22 @@
     </div>
 
     <div id="volume-select-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 id="volume-modal-title">권 선택</h2>
+        <div class="modal-content volume-modal-card">
+            <div class="volume-modal-header">
+                <div class="volume-modal-title-group">
+                    <span class="volume-modal-icon">📚</span>
+                    <h2 id="volume-modal-title">권 선택</h2>
+                </div>
+                <button type="button" id="volume-modal-close-icon" class="volume-close-icon-btn" aria-label="닫기" title="닫기">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
             <div id="volume-list" class="book-grid"></div>
-            <div class="modal-actions">
-                <button id="volume-modal-close-btn">닫기</button>
+            <div class="modal-actions volume-modal-actions">
+                <button type="button" id="volume-modal-close-btn" class="volume-modal-close-pill">닫기</button>
             </div>
         </div>
     </div>

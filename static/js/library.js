@@ -260,8 +260,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const placeholder = `https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG`;
             const cover = vol.cover_url || placeholder;
-            const isCompleted = (vol.total_pages > 0 && vol.current_page >= vol.total_pages * 0.95);
-            const isReading = (vol.current_page > 0 && !isCompleted);
+            const hasPages = (vol.total_pages && vol.total_pages > 0);
+            const curPage = vol.current_page || 0;
+            const totalPages = vol.total_pages || 0;
+            const isCompleted = (hasPages && curPage >= totalPages * 0.95);
+            const isReading = (curPage > 0 && !isCompleted);
             const isNextToRead = (vol.id === nextToReadVolId);
 
             if (isCompleted) volCard.classList.add('vol-completed');
@@ -273,27 +276,53 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isNextToRead) {
                 badgeHtml = '<div class="next-to-read-badge">다음 읽을 차례 ✨</div>';
             } else if (isReading) {
-                badgeHtml = '<div class="reading-badge">읽는 중</div>';
+                badgeHtml = '<div class="reading-badge">📖 읽는 중</div>';
+            }
+
+            // Standardized progress & status text across ALL volumes (even unread ones)
+            const pct = hasPages ? Math.min(100, Math.round((curPage / totalPages) * 100)) : 0;
+            let progressLabel = '';
+            if (hasPages) {
+                if (isCompleted) {
+                    progressLabel = `완독 (${totalPages}p)`;
+                } else if (curPage > 0) {
+                    progressLabel = `${curPage} / ${totalPages}p (${pct}%)`;
+                } else {
+                    progressLabel = `미독 (총 ${totalPages}p)`;
+                }
+            } else {
+                progressLabel = '미독 (읽기 시작)';
             }
 
             volCard.innerHTML = `
-                <a href="/reader/${vol.id}">
-                    <div class="vol-thumb-wrapper">
+                <a href="/reader/${vol.id}" class="vol-card-main-link">
+                    <div class="vol-thumb-wrapper book-cover-container">
                         <img src="${cover}" alt="${vol.title || 'No Title'}">
+                        <div class="book-spine-crease"></div>
                         ${badgeHtml}
                     </div>
-                    <div class="book-info">
+                    <div class="book-info vol-book-info">
                         <h3>제 ${vol.volume_number}권</h3>
-                        <p>${vol.title || '제목 없음'}</p>
+                        <p title="${vol.title || '제목 없음'}">${vol.title || '제목 없음'}</p>
                     </div>
                 </a>
-                ${vol.total_pages > 0 ? `
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: ${((vol.current_page || 0) / vol.total_pages) * 100}%;"></div>
+                <div class="vol-card-footer">
+                    <div class="vol-progress-slot">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: ${pct}%;"></div>
+                        </div>
+                        <span class="progress-text">${progressLabel}</span>
+                    </div>
+                    <div class="vol-action-row">
+                        <button type="button" class="isbn-btn vol-isbn-btn" data-file-id="${vol.id}" data-book-title="${vol.title || '제목 없음'}" data-volume-number="${vol.volume_number}" title="도서 메타데이터 및 표지 수정">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                            </svg>
+                            ISBN
+                        </button>
+                    </div>
                 </div>
-                <span class="progress-text">${vol.current_page || 0} / ${vol.total_pages}</span>
-                ` : ''}
-                <button class="isbn-btn" data-file-id="${vol.id}" data-book-title="${vol.title || '제목 없음'}" data-volume-number="${vol.volume_number}">정보 수정</button>
             `;
             volumeList.appendChild(volCard);
         });
@@ -474,10 +503,14 @@ document.addEventListener('DOMContentLoaded', () => {
     registerBtn.addEventListener('click', registerInfo);
 
     // Listeners for Volume Select modal
-    closeVolumeModalBtn.addEventListener('click', closeVolumeModal);
-    volumeModal.addEventListener('click', (e) => {
-        if (e.target === volumeModal) closeVolumeModal();
-    });
+    if (closeVolumeModalBtn) closeVolumeModalBtn.addEventListener('click', closeVolumeModal);
+    const volumeModalCloseIcon = document.getElementById('volume-modal-close-icon');
+    if (volumeModalCloseIcon) volumeModalCloseIcon.addEventListener('click', closeVolumeModal);
+    if (volumeModal) {
+        volumeModal.addEventListener('click', (e) => {
+            if (e.target === volumeModal) closeVolumeModal();
+        });
+    }
 
     // --- Scan Button Logic ---
     const scanPdfBtn = document.getElementById('scan-pdf-btn');

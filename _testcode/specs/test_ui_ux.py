@@ -376,5 +376,34 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertNotIn('transform: translateY(12px)', css)
         self.assertIn('transform: translateY(-8px) !important;', css)
 
+    def test_volume_select_modal_ui_consistency_and_glassmorphism(self):
+        """Verify volume select modal layout consistency, standardized progress slot, and ISBN buttons."""
+        with open('templates/index.html', 'r', encoding='utf-8') as f:
+            html = f.read()
+        with open('static/js/library.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. Modern markup structure in index.html
+        self.assertIn('volume-modal-card', html)
+        self.assertIn('volume-modal-header', html)
+        self.assertIn('volume-modal-close-icon', html)
+        self.assertIn('volume-modal-close-pill', html)
+
+        # 2. Consistent card layout and progress slots in library.js
+        self.assertIn('vol-progress-slot', js)
+        self.assertIn('vol-card-footer', js)
+        self.assertIn('vol-isbn-btn', js)
+        self.assertIn('미독 (총', js)
+        self.assertIn('volumeModalCloseIcon', js)
+
+        # 3. Glassmorphic styling and alignment in style.css
+        self.assertIn('.volume-modal-card {', css)
+        self.assertIn('.vol-progress-slot {', css)
+        self.assertIn('.vol-isbn-btn {', css)
+        self.assertIn('.volume-modal-close-pill {', css)
+        self.assertIn('min-height: 36px;', css)
+
 if __name__ == '__main__':
     unittest.main()
