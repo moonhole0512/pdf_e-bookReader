@@ -472,6 +472,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Forward mouse wheel events over touch zones to the scrollable container
+    const touchZonesWrapper = document.getElementById('reader-touch-zones');
+    if (touchZonesWrapper) {
+        touchZonesWrapper.addEventListener('wheel', (e) => {
+            container.scrollTop += e.deltaY;
+            container.scrollLeft += e.deltaX;
+        }, { passive: true });
+    }
+
     // --- Scrubber Bar Interaction ---
     const scrubberTrack = document.getElementById('scrubber-track');
     const scrubberTooltip = document.getElementById('scrubber-tooltip');
@@ -626,44 +635,73 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Swipe Navigation
-    let startX = 0, startY = 0;
-    const swipeThreshold = 40;
+    // --- Mobile Touch Gestures: Smooth Scroll Preservation + Tap Navigation + Swipe ---
+    let touchStartTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouchScrolling = false;
 
     document.addEventListener('touchstart', (e) => {
-        if (e.target.closest('#settings-panel, #floating-controls, button, input, a, #reader-scrubber-container')) {
-            startX = 0;
-            startY = 0;
+        if (e.target.closest('#settings-panel, #floating-controls, #reader-scrubber-container, button, input, a')) {
+            touchStartX = 0;
+            touchStartY = 0;
             return;
         }
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isTouchScrolling = false;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (touchStartX === 0) return;
+        const diffX = Math.abs(e.touches[0].clientX - touchStartX);
+        const diffY = Math.abs(e.touches[0].clientY - touchStartY);
+        if (diffY > 8 || diffX > 8) {
+            isTouchScrolling = true;
+        }
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-        if (startX === 0) return;
+        if (touchStartX === 0) return;
 
         const endX = e.changedTouches[0].clientX;
         const endY = e.changedTouches[0].clientY;
-        const diffX = startX - endX;
-        const diffY = startY - endY;
+        const diffX = endX - touchStartX;
+        const diffY = endY - touchStartY;
+        const touchDuration = Date.now() - touchStartTime;
 
-        if (Math.abs(diffX) <= Math.abs(diffY) || Math.abs(diffX) <= swipeThreshold) {
-            startX = 0; startY = 0;
+        // 1. Horizontal Swipe: Swipe left/right turns page
+        if (Math.abs(diffX) >= 45 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+            if (diffX < 0) {
+                if (viewMode === 'rtl') onPrevPage(); else onNextPage();
+            } else {
+                if (viewMode === 'rtl') onNextPage(); else onPrevPage();
+            }
+            touchStartX = 0;
+            touchStartY = 0;
             return;
         }
 
-        const isSwipeRight = diffX < 0; // Swipe left to right
-        const isSwipeLeft = diffX > 0; // Swipe right to left
+        // 2. Pure Tap (Not a drag/scroll, short duration, minimal displacement)
+        // This ensures scrolling never triggers accidental page flips or menu toggling!
+        if (!isTouchScrolling && Math.abs(diffX) < 12 && Math.abs(diffY) < 12 && touchDuration < 350) {
+            const screenWidth = window.innerWidth;
+            const leftBoundary = screenWidth * 0.25;
+            const rightBoundary = screenWidth * 0.75;
 
-        if (isSwipeLeft) {
-            if (viewMode === 'rtl') onPrevPage(); else onNextPage();
-        } else if (isSwipeRight) {
-            if (viewMode === 'rtl') onNextPage(); else onPrevPage();
+            if (endX <= leftBoundary) {
+                if (viewMode === 'rtl') onNextPage(); else onPrevPage();
+            } else if (endX >= rightBoundary) {
+                if (viewMode === 'rtl') onPrevPage(); else onNextPage();
+            } else {
+                toggleReaderControls();
+            }
         }
-        
-        startX = 0; 
-        startY = 0;
+
+        touchStartX = 0;
+        touchStartY = 0;
+        isTouchScrolling = false;
     });
 
     // --- Initial Load ---

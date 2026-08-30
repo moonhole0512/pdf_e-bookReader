@@ -497,5 +497,31 @@ class TestUIUXEnhancements(unittest.TestCase):
         # 5. Mobile search input overflow prevention
         self.assertIn('min-width: 0 !important;', css)
 
+    def test_reader_fit_width_scroll_and_touch_preservation(self):
+        """Verify reader allows smooth scrolling when zoomed in fit-width mode on desktop and mobile."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        # 1. CSS Scroll Container & Touch Action
+        self.assertIn('overflow-y: auto;', css)
+        self.assertIn('touch-action: pan-y;', css)
+        self.assertIn('-webkit-overflow-scrolling: touch;', css)
+
+        # 2. Release touch-zone pointer-events on mobile to allow native vertical drag scrolling
+        self.assertIn('.touch-zone {', css)
+        self.assertIn('pointer-events: none !important;', css)
+
+        # 3. Mouse wheel forwarding on touch zones for desktop
+        self.assertIn("touchZonesWrapper.addEventListener('wheel'", js)
+        self.assertIn('container.scrollTop += e.deltaY;', js)
+
+        # 4. Mobile scroll vs tap separation in touch gestures
+        self.assertIn('isTouchScrolling', js)
+        self.assertIn('touchDuration < 350', js)
+        self.assertIn('leftBoundary = screenWidth * 0.25;', js)
+        self.assertIn('rightBoundary = screenWidth * 0.75;', js)
+
 if __name__ == '__main__':
     unittest.main()

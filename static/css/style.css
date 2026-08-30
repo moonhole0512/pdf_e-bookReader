@@ -544,8 +544,12 @@ header nav a:hover {
 #reader-container { 
     width: 100vw; 
     height: 100vh; 
-    overflow: auto; 
+    overflow-y: auto; 
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     text-align: center;
+    position: relative;
     /* Custom Scrollbar for Webkit browsers */
     scrollbar-width: thin; /* Firefox */
     scrollbar-color: var(--accent-color) var(--secondary-bg); /* Firefox */
@@ -2719,10 +2723,13 @@ header nav a:hover {
     transform: scale(0.92);
 }
 
-/* ponytail: Hide touch zone chevron hints on mobile/touch screens to avoid occluding book text/artwork */
+/* ponytail: Hide touch zone chevron hints and release pointer-events on mobile/touch screens for native scrolling */
 @media (max-width: 768px), (hover: none) and (pointer: coarse) {
     .zone-hint {
         display: none !important;
+    }
+    .touch-zone {
+        pointer-events: none !important;
     }
 }
 
