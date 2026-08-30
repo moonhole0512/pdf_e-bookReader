@@ -30,16 +30,13 @@ def book_lookup_by_title_volume():
 
     # Fallback to Google Books API
     resp = lookup_google_books_by_title_volume(title, volume)
-    if resp.get("status") != 200:
-        return jsonify({"error": resp.get("error", "Error")}), resp.get("status", 500)
-
     results = resp.get("results", [])
-    if not results:
-        return jsonify({"error": "도서 정보를 찾을 수 없습니다."}), 404
+    if results:
+        if len(results) == 1:
+            return jsonify(results[0])
+        return jsonify(results)
 
-    if len(results) == 1:
-        return jsonify(results[0])
-    return jsonify(results)
+    return jsonify({"error": "도서 정보를 찾을 수 없습니다. 직접 제목이나 ISBN으로 검색해 보세요."}), 404
 
 @api_bp.route('/api/book/lookup')
 @login_required

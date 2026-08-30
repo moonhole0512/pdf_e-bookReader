@@ -45,6 +45,8 @@ class TestBookEnricher(unittest.TestCase):
         self.assertEqual(clean_book_title("농림_01.pdf"), "농림")
         self.assertEqual(clean_book_title("기어와라 냐루코 양_02"), "기어와라 냐루코 양")
         self.assertEqual(clean_book_title("던전에서..._12_Special.pdf"), "던전에서...")
+        self.assertEqual(clean_book_title("早乙女姉妹は漫畵のためなら!？1(ジャンプコミックス)(コミック)"), "早乙女姉妹は漫畵のためなら")
+        self.assertEqual(clean_book_title("葬送のフリーレン 01巻 [コミック]"), "葬送のフリーレン")
 
     def test_strict_volume_matching(self):
         """Verify strict volume matcher prevents false positives like 11, 16 when seeking vol 1."""
@@ -107,6 +109,17 @@ class TestBookEnricher(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data.get('isbn_13'), "9788926780534")
         self.assertIsNotNone(data.get('thumbnail'))
+
+    def test_foreign_and_japanese_book_candidate_search(self):
+        """Verify Japanese and foreign books resolve accurately via Aladin Foreign/All target and Google Books error protection."""
+        from services.book_enricher import search_book_candidates
+        cands = search_book_candidates("早乙女姉妹は漫畵のためなら!？1(ジャンプコミックス)(コミック)", volume=1)
+        self.assertGreater(len(cands), 0)
+        top = cands[0]
+        self.assertIn("早乙女姉妹", top['title'])
+        self.assertIn("山本亮平", top['author'])
+        self.assertEqual(top['isbn_13'], "9784088816180")
+        self.assertIn("cover500", top['thumbnail'])
 
 if __name__ == '__main__':
     unittest.main()

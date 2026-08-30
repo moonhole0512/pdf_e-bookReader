@@ -11,11 +11,21 @@ HEADERS = {
 }
 
 def clean_book_title(raw_title: str) -> str:
-    """Removes volume numbers, file extension, and trailing noise from title for searching."""
+    """
+    Removes volume numbers, file extension, brackets, publisher labels, and trailing noise from title for searching.
+    Handles Japanese fullwidth punctuation (！？), parentheses (コミック), and labels.
+    """
     t = raw_title.strip()
     t = re.sub(r'\.pdf$', '', t, flags=re.I)
     t = re.sub(r'[\s_-]*Special$', '', t, flags=re.I)
-    t = re.sub(r'[\s_-]*0*\d+(?:\.\d+)?$', '', t)
+    # Remove publisher/format brackets at the end: (ジャンプコミックス)(コミック), [コミック], 【...】
+    t = re.sub(r'(?:[\(\[（【《〈][^\)\]）】》〉]*(?:コミック|コミックス|文庫|ノベル|판형|스캔|완결|정발|단행본|comic|manga)[^\)\]）】》〉]*[\)\]）】》〉])+\s*$', '', t, flags=re.I)
+    t = t.strip()
+    # Remove trailing volume expressions: !?1, !？ 1, 01, 01巻, 1권, 第1巻, Vol.1, etc.
+    t = re.sub(r'[!！？?\s_-]*(?:(?:제|第)?\s*0*\d+(?:\.\d+)?\s*(?:권|巻|화|탄|부|vol(?:\.|\b))?\s*)+$', '', t, flags=re.I)
+    t = re.sub(r'[\s_-]*0*\d+(?:\.\d+)?\s*$', '', t)
+    # If trailing brackets still remain (e.g. (1), (2)), strip them
+    t = re.sub(r'[\(\[（【《〈]\s*0*\d+\s*[\)\]）】》〉]\s*$', '', t)
     return t.strip()
 
 def isbn_10_to_13(isbn_10: str) -> str:
@@ -116,15 +126,19 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
                 publisher_info = clean_li
                 break
 
-        # Cover Image Extraction: STRICTLY AVOID SpineShelf (book spine)
+        # Cover Image Extraction & Direct ISBN Attribute Resolution
+        box_isbn_m = re.search(r'isbn=["\']?(\d{9}[\dX]|\d{10}|\d{13})["\']?', box, re.I)
+        box_item_id_m = re.search(r'itemId=["\']?(\d+)["\']?', box, re.I)
+        raw_box_isbn = box_isbn_m.group(1) if box_isbn_m else None
+        item_id = box_item_id_m.group(1) if box_item_id_m else None
+
         all_imgs = re.findall(r'https?://image\.aladin\.co\.kr/product/[^"\'\s>]+\.(?:jpg|png)', box)
         cover_url = None
         isbn = None
 
         # 1. Prefer explicit front covers (cover200, cover150, cover500, cover/)
-        front_covers = [u for u in all_imgs if 'cover' in u.lower() and 'spineshelf' not in u.lower()]
+        front_covers = [u for u in all_imgs if 'cover' in u.lower() and 'spineshelf' not in u.lower() and '19book' not in u.lower()]
         if front_covers:
-            # Upgrade to cover500
             cover_url = re.sub(r'/cover\d*/', '/cover500/', front_covers[0])
         elif all_imgs:
             # 2. If only SpineShelf exists, convert SpineShelf/..._d.jpg to cover500/..._1.jpg
@@ -132,14 +146,23 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
             if 'spineshelf' in first_img.lower():
                 cover_url = re.sub(r'/SpineShelf/', '/cover500/', first_img, flags=re.I)
                 cover_url = re.sub(r'_[a-zA-Z]\.jpg$', '_1.jpg', cover_url, flags=re.I)
-            else:
+            elif '19book' not in first_img.lower():
                 cover_url = first_img
+
+        # 3. If cover_url is still missing (or adult 19book placeholder), synthesize from itemId & ISBN
+        if (not cover_url or '19book' in cover_url.lower()) and item_id and raw_box_isbn:
+            prefix = item_id[:5]
+            mid = item_id[5:7] if len(item_id) >= 7 else "00"
+            cover_url = f"https://image.aladin.co.kr/product/{prefix}/{mid}/cover500/{raw_box_isbn}_2.jpg"
 
         if cover_url:
             isbn_m = re.search(r'/cover\w*/([a-zA-Z0-9]+)_\d+\.', cover_url)
             if isbn_m:
                 raw_isbn = isbn_m.group(1)
                 isbn = isbn_10_to_13(raw_isbn) if len(raw_isbn) == 10 else raw_isbn
+
+        if not isbn and raw_box_isbn:
+            isbn = isbn_10_to_13(raw_box_isbn) if len(raw_box_isbn) == 10 else raw_box_isbn
 
         # Scoring candidate
         score = 50
@@ -284,20 +307,29 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
     # 1. Search Aladin
     if is_isbn:
         search_phrases = [clean_num]
-        aladin_targets = ["Book", "All"]
+        aladin_targets = ["Book", "Foreign", "All"]
         max_pages = 1
     else:
         clean_q = clean_book_title(query)
+        is_foreign = not has_korean(clean_q)
+        aladin_targets = ["Foreign", "All", "Book"] if is_foreign else ["Book", "eBook", "All"]
+
         search_phrases = []
-        if volume and volume > 0:
-            search_phrases.append(f"{clean_q} {volume}")
-            if volume == 1:
-                # Volume 1 original novels often don't have '1' in their title
-                search_phrases.append(clean_q)
-        else:
-            search_phrases.append(clean_q)
-        aladin_targets = ["Book"]
-        max_pages = 2 # Search up to page 2 to find out-of-print books that slipped down in ranking
+        # Support Kanji variants: 漫畵 <-> 漫画
+        kanji_variants = [clean_q]
+        if '漫畵' in clean_q:
+            kanji_variants.append(clean_q.replace('漫畵', '漫画'))
+        elif '漫画' in clean_q:
+            kanji_variants.append(clean_q.replace('漫画', '漫畵'))
+
+        for q_variant in kanji_variants:
+            if volume and volume > 0:
+                search_phrases.append(f"{q_variant} {volume}")
+                search_phrases.append(q_variant) # Bare series title is crucial for finding foreign volumes
+            else:
+                search_phrases.append(q_variant)
+
+        max_pages = 2 # Search up to page 2 to find out-of-print or foreign books
 
     for target in aladin_targets:
         for phrase in search_phrases:
@@ -332,37 +364,39 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
     # Sort results by score desc so original novel comes first
     results.sort(key=lambda x: x.get('score', 0), reverse=True)
 
-    # 2. Search Google Books
-    try:
-        search_q = clean_num if is_isbn else (f"{clean_q} {volume}" if volume else clean_q)
-        g_url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(search_q)}"
-        gr = requests.get(g_url, timeout=5)
-        if gr.status_code == 200:
-            data = gr.json()
-            for item in data.get('items', [])[:5]:
-                info = item.get('volumeInfo', {})
-                cand_t = info.get('title', '')
-                cand_auth = ", ".join(info.get('authors', [])) or "알 수 없음"
-                thumb = info.get('imageLinks', {}).get('thumbnail')
-                if thumb and thumb.startswith('http://'):
-                    thumb = 'https://' + thumb[7:]
+    # 2. Search Google Books (Only if Aladin results are sparse to prevent 429 quota exhaustion)
+    if len(results) < 3:
+        try:
+            search_q = clean_num if is_isbn else (f"{clean_q} {volume}" if volume else clean_q)
+            lang_param = "&langRestrict=ko" if (not is_isbn and has_korean(clean_q)) else ""
+            g_url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(search_q)}{lang_param}"
+            gr = requests.get(g_url, headers=HEADERS, timeout=5)
+            if gr.status_code == 200:
+                data = gr.json()
+                for item in data.get('items', [])[:5]:
+                    info = item.get('volumeInfo', {})
+                    cand_t = info.get('title', '')
+                    cand_auth = ", ".join(info.get('authors', [])) or "알 수 없음"
+                    thumb = info.get('imageLinks', {}).get('thumbnail')
+                    if thumb and thumb.startswith('http://'):
+                        thumb = 'https://' + thumb[7:]
 
-                identifiers = info.get('industryIdentifiers', [])
-                isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
+                    identifiers = info.get('industryIdentifiers', [])
+                    isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
 
-                norm_key = f"{cand_t}_{cand_auth}".lower()
-                if norm_key not in seen_titles:
-                    seen_titles.add(norm_key)
-                    results.append({
-                        "title": cand_t,
-                        "author": cand_auth,
-                        "thumbnail": thumb,
-                        "isbn_13": isbn,
-                        "isbn_10": None,
-                        "source": "Google Books"
-                    })
-    except Exception as e:
-        logger.debug(f"Candidate search (Google) error: {e}")
+                    norm_key = f"{cand_t}_{cand_auth}".lower()
+                    if norm_key not in seen_titles:
+                        seen_titles.add(norm_key)
+                        results.append({
+                            "title": cand_t,
+                            "author": cand_auth,
+                            "thumbnail": thumb,
+                            "isbn_13": isbn,
+                            "isbn_10": None,
+                            "source": "Google Books"
+                        })
+        except Exception as e:
+            logger.debug(f"Candidate search (Google) error: {e}")
 
     return results
 
