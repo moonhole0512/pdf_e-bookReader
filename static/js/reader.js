@@ -8,12 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const SATURATION_KEY = 'pdfReaderSaturation';
     const INVERT_COLORS_KEY = 'pdfReaderInvertColors';
     const PAGE_INDICATOR_VISIBLE_KEY = 'pdfReaderPageIndicatorVisible';
+    const SHARPEN_KEY = 'pdfReaderSharpenMode';
 
     // --- Default Settings ---
     const DEFAULT_BRIGHTNESS = 100;
     const DEFAULT_CONTRAST = 100;
     const DEFAULT_SATURATION = 100;
     const DEFAULT_INVERT_COLORS = false;
+    const DEFAULT_SHARPEN = 'off'; // ponytail: 'off', 'mild', 'strong'
 
     // --- Load settings from LocalStorage ---
     const savedFitMode = localStorage.getItem(FIT_MODE_KEY);
@@ -44,6 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewTwoPageRtlBtn = document.getElementById('view-two-page-rtl');
     const togglePageIndicator = document.getElementById('toggle-page-indicator');
 
+    // Sharpen settings (ponytail: Native GPU filter controls)
+    const sharpenOffBtn = document.getElementById('sharpen-off');
+    const sharpenMildBtn = document.getElementById('sharpen-mild');
+    const sharpenStrongBtn = document.getElementById('sharpen-strong');
+
     // Color settings
     const brightnessSlider = document.getElementById('brightness-slider');
     const contrastSlider = document.getElementById('contrast-slider');
@@ -60,7 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let scale = !isNaN(savedScale) ? savedScale : 1.5;
     let viewMode = savedViewMode || 'one'; // 'one', 'ltr', 'rtl'
 
-    // --- Load Color Settings ---
+    // --- Load Color & Sharpen Settings ---
+    let currentSharpen = localStorage.getItem(SHARPEN_KEY) || DEFAULT_SHARPEN;
     let currentBrightness = parseInt(localStorage.getItem(BRIGHTNESS_KEY) || DEFAULT_BRIGHTNESS, 10);
     let currentContrast = parseInt(localStorage.getItem(CONTRAST_KEY) || DEFAULT_CONTRAST, 10);
     let currentSaturation = parseInt(localStorage.getItem(SATURATION_KEY) || DEFAULT_SATURATION, 10);
@@ -69,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial UI Setup ---
     updateFitModeUI();
     updateViewModeUI();
+    updateSharpenUI();
     applyColorFilters();
     updatePageIndicatorState();
 
@@ -89,18 +98,34 @@ document.addEventListener('DOMContentLoaded', () => {
         togglePageIndicator.checked = isPageIndicatorVisible;
     }
 
+    function updateSharpenUI() {
+        if (sharpenOffBtn) sharpenOffBtn.classList.toggle('active', currentSharpen === 'off');
+        if (sharpenMildBtn) sharpenMildBtn.classList.toggle('active', currentSharpen === 'mild');
+        if (sharpenStrongBtn) sharpenStrongBtn.classList.toggle('active', currentSharpen === 'strong');
+    }
+
     function applyColorFilters() {
-        let filterString = `brightness(${currentBrightness}%) contrast(${currentContrast}%) saturate(${currentSaturation}%)`;
+        // ponytail: Combine GPU-accelerated SVG sharpen filter with native CSS color filters
+        let sharpenPrefix = '';
+        if (currentSharpen === 'mild') {
+            sharpenPrefix = 'url(#sharpen-filter-mild) ';
+        } else if (currentSharpen === 'strong') {
+            sharpenPrefix = 'url(#sharpen-filter-strong) ';
+        }
+
+        let filterString = `${sharpenPrefix}brightness(${currentBrightness}%) contrast(${currentContrast}%) saturate(${currentSaturation}%)`;
         if (isInverted) {
             filterString += ' invert(100%)';
         }
         viewer.style.filter = filterString;
 
+        updateSharpenUI();
         brightnessSlider.value = currentBrightness;
         contrastSlider.value = currentContrast;
         saturationSlider.value = currentSaturation;
         invertColorsToggle.checked = isInverted;
 
+        localStorage.setItem(SHARPEN_KEY, currentSharpen);
         localStorage.setItem(BRIGHTNESS_KEY, currentBrightness);
         localStorage.setItem(CONTRAST_KEY, currentContrast);
         localStorage.setItem(SATURATION_KEY, currentSaturation);
@@ -108,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetColorFilters() {
+        currentSharpen = DEFAULT_SHARPEN;
         currentBrightness = DEFAULT_BRIGHTNESS;
         currentContrast = DEFAULT_CONTRAST;
         currentSaturation = DEFAULT_SATURATION;
@@ -346,6 +372,15 @@ document.addEventListener('DOMContentLoaded', () => {
     viewOnePageBtn.addEventListener('click', () => setViewMode('one'));
     viewTwoPageLtrBtn.addEventListener('click', () => setViewMode('ltr'));
     viewTwoPageRtlBtn.addEventListener('click', () => setViewMode('rtl'));
+
+    // Sharpen Settings (ponytail: 1-click native sharpen toggle)
+    const setSharpenMode = (mode) => {
+        currentSharpen = mode;
+        applyColorFilters();
+    };
+    if (sharpenOffBtn) sharpenOffBtn.addEventListener('click', () => setSharpenMode('off'));
+    if (sharpenMildBtn) sharpenMildBtn.addEventListener('click', () => setSharpenMode('mild'));
+    if (sharpenStrongBtn) sharpenStrongBtn.addEventListener('click', () => setSharpenMode('strong'));
 
     // Color Settings
     brightnessSlider.addEventListener('input', (e) => {

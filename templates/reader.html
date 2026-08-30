@@ -10,6 +10,18 @@
 </head>
 <body data-file-id="{{ file.id }}" data-pdf-url="{{ pdf_url }}" data-initial-page="{{ state.current_page }}">
 
+    <!-- ponytail: Native SVG Sharpen Filter (zero dependencies, 100% GPU accelerated) -->
+    <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" aria-hidden="true">
+        <defs>
+            <filter id="sharpen-filter-mild">
+                <feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="0 -0.5 0 -0.5 3 -0.5 0 -0.5 0" />
+            </filter>
+            <filter id="sharpen-filter-strong">
+                <feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="0 -1 0 -1 5 -1 0 -1 0" />
+            </filter>
+        </defs>
+    </svg>
+
     <div id="reader-container">
         <div id="loader-overlay">
             <div class="loader"></div>
@@ -121,6 +133,15 @@
                     <button id="view-one-page">1P</button>
                     <button id="view-two-page-ltr">2P (좌->우)</button>
                     <button id="view-two-page-rtl">2P (우->좌)</button>
+                </div>
+            </div>
+            <!-- ponytail: Sharpen Filter Setting (Off / Mild / Strong) -->
+            <div class="settings-section">
+                <h4>선명도 (샤픈)</h4>
+                <div class="button-group" id="sharpen-button-group">
+                    <button id="sharpen-off" class="active">끄기</button>
+                    <button id="sharpen-mild">보통</button>
+                    <button id="sharpen-strong">강하게</button>
                 </div>
             </div>
             <div id="color-settings-section" class="settings-section">

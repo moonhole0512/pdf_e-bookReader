@@ -239,5 +239,37 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('align-items: center;', hint_block)
         self.assertIn('justify-content: center;', hint_block)
 
+    def test_reader_sharpen_filter_options(self):
+        """Verify reader contains GPU-accelerated SVG sharpen filters and 3-step UI button group."""
+        from models import File
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        file_obj = File.query.first()
+        self.assertIsNotNone(file_obj)
+
+        resp = self.client.get(f'/reader/{file_obj.id}')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+
+        # 1. Native SVG sharpen filter definitions
+        self.assertIn('id="sharpen-filter-mild"', html)
+        self.assertIn('id="sharpen-filter-strong"', html)
+        self.assertIn('feConvolveMatrix', html)
+
+        # 2. UI button group in reader settings panel
+        self.assertIn('id="sharpen-button-group"', html)
+        self.assertIn('id="sharpen-off"', html)
+        self.assertIn('id="sharpen-mild"', html)
+        self.assertIn('id="sharpen-strong"', html)
+
+        # 3. JavaScript integration
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        self.assertIn('SHARPEN_KEY', js)
+        self.assertIn('url(#sharpen-filter-mild)', js)
+        self.assertIn('url(#sharpen-filter-strong)', js)
+
 if __name__ == '__main__':
     unittest.main()

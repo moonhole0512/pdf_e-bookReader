@@ -30,6 +30,7 @@
 - [x] [Debugging] Step 25: Pagination Address Bar Clean URL & Reload Protection - Replaced `/api/books` pagination links with `url_for('library.index', page=...)`, updated `history.pushState` to record clean root URL (`/?page=N`), added redirect guard in `/api/books` for direct browser navigation to prevent broken snippet rendering on F5, and added `test_pagination_clean_url_and_safe_reload` (Evaluator subagent PASS)
 - [x] [Debugging] Step 26: Reader Controls In-Place Smooth Fade Transition - Eliminated unwanted horizontal X-axis jumps (`translateX(-50%)` omission on scrubber and improper addition on page indicator), preserved center alignment on the bottom scrubber, anchored top-left position on the page indicator, unified cubic-bezier transitions for natural in-place fading, and added `test_reader_controls_smooth_in_place_fade_transition` (Evaluator subagent PASS)
 - [x] [Implementation] Step 27: Reader Touch Zones Default Cursor & Pixel-Perfect Centered Chevrons - Replaced `cursor: w-resize`/`e-resize` with `cursor: default` on `.touch-zone-left` and `.touch-zone-right` to prevent distracting cursor changes, replaced off-center text glyphs (`‹`, `›`) with pixel-perfect symmetric inline SVG chevron polylines (`<polyline points="15 18 9 12 15 6">` & `<polyline points="9 18 15 12 9 6">`), removed intrusive title tooltips, and added `test_touch_zones_default_cursor_and_svg_centering` (Evaluator subagent PASS)
+- [x] [Implementation] Step 28: GPU-Accelerated Native SVG Sharpen Filter Option - Implemented zero-JS-loop, 100% GPU-accelerated convolution matrix filters (`<feConvolveMatrix>`) in `templates/reader.html` for mild and strong sharpening of blurry book scans, added 3-step button group (`[끄기]`, `[보통]`, `[강하게]`) in settings panel, persisted mode in `localStorage`, and added `test_reader_sharpen_filter_options` (Evaluator subagent PASS)
 
 ## In progress
 
@@ -39,8 +40,8 @@
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
-- 24/24 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 27 items and confirmed PASS.
+- 25/25 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
+- Evaluator subagent verified Step 28 items and confirmed PASS.
 
 
 
