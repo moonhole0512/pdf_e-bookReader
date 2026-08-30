@@ -22,6 +22,7 @@
 - [x] [Implementation] Step 17: Premium E-Reader Layout & Atmosphere Overhaul - Now Reading Lounge hero with ambient glow, 3D paperback book cover with spine crease overlay, collision-free stacked badges, glassmorphic hover-reveal ISBN button, and non-destructive library filter chips (Evaluator subagent PASS)
 - [x] [Implementation] Step 18: Reader Immersion & Direct Navigation Overhaul - Removed redundant continue buttons (direct 1-touch card-to-reader navigation), added 3-way click/tap screen navigation zones (left/right for paging, center for Zen control toggle), mobile touch swipe/tap, timeline scrubber with hover page tooltip, PDF TOC outline sidebar drawer, and library sorting/view mode toggle (Evaluator subagent PASS)
 - [x] [Debugging] Step 19: Reading Badge Redesign & Tooltip Collision Prevention - Eliminated duplicate CSS rule causing vertical stretching of `.reading-badge`, upgraded to sleek glassmorphic pill badge (`📖 읽는 중`), removed duplicate title tooltip from `.isbn-btn` and added automatic parent title suppression on hover (Evaluator subagent PASS)
+- [x] [Implementation] Step 20: Responsive Multi-Book Now Reading Lounge - Enhanced top reading lounge to dynamically display up to 3 distinct recent books, adapting gracefully across desktop (3 columns), tablet (2 columns), and mobile (1 column) without duplicating books in the secondary reading shelf (Evaluator subagent PASS)
 
 ## In progress
 
@@ -31,8 +32,8 @@
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
-- 18/18 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
-- Evaluator subagent verified Step 19 items (reading-badge pill redesign, tooltip collision elimination) and confirmed PASS.
+- 19/19 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
+- Evaluator subagent verified Step 20 items (multi-card lounge backend aggregation, responsive grid adaptability) and confirmed PASS.
 
 
 

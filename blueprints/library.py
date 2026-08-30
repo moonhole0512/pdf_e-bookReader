@@ -12,20 +12,51 @@ library_bp = Blueprint('library', __name__)
 def index():
     user_id = g.user.id
 
-    # 1. 가장 최근 읽은 책 (1권)
-    last_read_state = ReadingState.query.filter_by(user_id=user_id)\
+    # 1. 가장 최근 읽은 책들 (최대 3권)
+    recent_states = ReadingState.query.filter_by(user_id=user_id)\
+        .join(File, ReadingState.file_id == File.id)\
+        .options(joinedload(ReadingState.file).joinedload(File.book))\
         .order_by(ReadingState.last_read_at.desc())\
-        .first()
+        .all()
 
-    # 2. 독서 중인 책 목록 (최근 읽은 순 상위 5개 그룹)
+    recent_lounge_items = []
+    seen_book_ids = set()
+    for state in recent_states:
+        if not state.file or not state.file.book:
+            continue
+        book_id = state.file.book_id
+        if book_id in seen_book_ids:
+            continue
+        seen_book_ids.add(book_id)
+
+        f = state.file
+        pct = round((state.current_page / f.total_pages) * 100) if f.total_pages > 0 else 0
+        pages_left = (f.total_pages - state.current_page) if f.total_pages > 0 else 0
+
+        next_vol = File.query.filter_by(
+            book_id=f.book_id,
+            volume_number=f.volume_number + 1
+        ).first()
+
+        recent_lounge_items.append({
+            'file': f,
+            'state': state,
+            'pct': pct,
+            'pages_left': pages_left,
+            'next_volume_file': next_vol
+        })
+        if len(recent_lounge_items) >= 3:
+            break
+
+    # 2. 독서 중인 책 목록 (상단 라운지에 노출되지 않은 나머지 독서 중 그룹 상위 5개)
     reading_book_ids_query = db.session.query(File.book_id)\
         .join(ReadingState, ReadingState.file_id == File.id)\
         .filter(ReadingState.user_id == user_id)\
         .order_by(ReadingState.last_read_at.desc())\
         .distinct()
 
-    if last_read_state and last_read_state.file:
-        reading_book_ids_query = reading_book_ids_query.filter(File.book_id != last_read_state.file.book_id)
+    if seen_book_ids:
+        reading_book_ids_query = reading_book_ids_query.filter(File.book_id.notin_(seen_book_ids))
 
     reading_book_ids = [item[0] for item in reading_book_ids_query.limit(5).all()]
     reading_groups = []
@@ -63,16 +94,12 @@ def index():
     total_books = pagination.total
     total_files = db.session.query(func.count(File.id)).scalar() or 0
 
-    last_file = last_read_state.file if last_read_state else None
-    next_volume_file = None
-    if last_file:
-        next_volume_file = File.query.filter_by(
-            book_id=last_file.book_id,
-            volume_number=last_file.volume_number + 1
-        ).first()
+    last_file = recent_lounge_items[0]['file'] if recent_lounge_items else None
+    next_volume_file = recent_lounge_items[0]['next_volume_file'] if recent_lounge_items else None
 
     return render_template(
         'index.html',
+        recent_lounge_items=recent_lounge_items,
         last_read_file=last_file,
         next_volume_file=next_volume_file,
         reading_groups=reading_groups,

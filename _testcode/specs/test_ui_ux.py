@@ -112,5 +112,20 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('toc-toggle-btn', html)
         self.assertIn('fullscreen-toggle-btn', html)
 
+    def test_multi_card_reading_lounge_up_to_3_books(self):
+        """Verify the Now Reading Lounge renders up to 3 recent reading cards in a responsive grid."""
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        resp = self.client.get('/')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+
+        # Confirm reading lounge section and responsive grid presence
+        self.assertIn('reading-lounge-section', html)
+        self.assertIn('reading-lounge-grid', html)
+        self.assertIn('reading-lounge-card', html)
+
 if __name__ == '__main__':
     unittest.main()

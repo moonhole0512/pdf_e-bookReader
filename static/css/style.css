@@ -1659,6 +1659,106 @@ header nav a:hover {
     margin-bottom: 2.5rem;
 }
 
+.reading-lounge-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+}
+
+.reading-lounge-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.lounge-count-badge {
+    background: rgba(10, 132, 255, 0.15);
+    border: 1px solid rgba(10, 132, 255, 0.3);
+    color: #4da3ff;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* Multi-Card Reading Lounge Grid (Up to 3 Books) */
+.reading-lounge-grid {
+    display: grid;
+    gap: 20px;
+    width: 100%;
+}
+
+.reading-lounge-grid.count-1 {
+    grid-template-columns: 1fr;
+}
+
+.reading-lounge-grid.count-2 {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
+.reading-lounge-grid.count-3 {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+@media (min-width: 1200px) {
+    .reading-lounge-grid.count-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .reading-lounge-grid.count-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .reading-lounge-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Multi-Card Compact Balancing when showing multiple books */
+.reading-lounge-grid:not(.count-1) .reading-lounge-card {
+    padding: 18px 20px;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-content {
+    gap: 16px;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-book-3d {
+    width: 88px;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-title {
+    font-size: 1.12rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-meta {
+    font-size: 0.82rem;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-progress-wrapper {
+    margin-bottom: 12px;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-actions {
+    gap: 8px;
+}
+
+.reading-lounge-grid:not(.count-1) .lounge-btn,
+.reading-lounge-grid:not(.count-1) .lounge-isbn-btn {
+    font-size: 11px;
+    padding: 5px 10px;
+}
+
 .reading-lounge-card {
     position: relative;
     background: linear-gradient(135deg, rgba(26, 29, 38, 0.9), rgba(18, 20, 26, 0.96));

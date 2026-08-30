@@ -27,7 +27,64 @@
     </header>
 
     <main class="library-container">
-        {% if last_read_file %}
+        {% if recent_lounge_items %}
+        <section class="bookshelf reading-lounge-section">
+            <div class="reading-lounge-header">
+                <h2>📖 이어 읽기</h2>
+                {% if recent_lounge_items|length > 1 %}
+                <span class="lounge-count-badge">최근 {{ recent_lounge_items|length }}권</span>
+                {% endif %}
+            </div>
+            <div class="reading-lounge-grid count-{{ recent_lounge_items|length }}">
+                {% for item in recent_lounge_items %}
+                {% set f = item.file %}
+                {% set state = item.state %}
+                {% set pct = item.pct %}
+                {% set pages_left = item.pages_left %}
+                {% set next_vol = item.next_volume_file %}
+                <div class="reading-lounge-card" data-url="{{ url_for('reader.reader_view', file_id=f.id) }}">
+                    <div class="lounge-ambient-bg" style="background-image: url('{{ f.cover_url or f.book.cover_url or '' }}');"></div>
+                    <div class="lounge-content">
+                        <a href="{{ url_for('reader.reader_view', file_id=f.id) }}" class="lounge-book-3d" title="{{ f.title or f.book.title }} - 클릭하여 마지막 읽은 지점으로 바로 이동">
+                            <img src="{{ f.cover_url or f.book.cover_url or 'https://placehold.co/300x450/2a2a2a/ffffff?text=No IMG' }}" alt="{{ f.title or f.book.title }}" loading="lazy">
+                            <div class="book-spine-crease"></div>
+                        </a>
+                        <div class="lounge-details">
+                            <div class="lounge-badge">이어 읽기 · NOW READING</div>
+                            <h3 class="lounge-title">
+                                <a href="{{ url_for('reader.reader_view', file_id=f.id) }}" class="lounge-title-link">
+                                    {{ f.title or f.book.title }}
+                                </a>
+                            </h3>
+                            <p class="lounge-meta">{{ f.author or f.book.author }} · Vol. {{ f.volume_number }}</p>
+                            
+                            {% if state and f.total_pages > 0 %}
+                            <a href="{{ url_for('reader.reader_view', file_id=f.id) }}" class="lounge-progress-wrapper" style="text-decoration: none; display: block;">
+                                <div class="lounge-progress-info">
+                                    <span class="progress-percent">진행률 {{ pct }}%</span>
+                                    <span class="pages-remaining">{{ pages_left }}p 남음 ({{ state.current_page }} / {{ f.total_pages }})</span>
+                                </div>
+                                <div class="progress-bar-container lounge-progress-bar">
+                                    <div class="progress-bar" style="width: {{ pct }}%;"></div>
+                                </div>
+                            </a>
+                            {% endif %}
+
+                            <div class="lounge-actions">
+                                {% if next_vol %}
+                                <a href="{{ url_for('reader.reader_view', file_id=next_vol.id) }}" class="lounge-btn secondary-btn" title="시리즈 다음 권 바로 읽기">
+                                    다음 권: 제{{ next_vol.volume_number }}권 ⏭️
+                                </a>
+                                {% endif %}
+                                <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ f.id }}" data-book-title="{{ f.title or f.book.title }}" data-volume-number="{{ f.volume_number }}">ISBN 정보 수정</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% elif last_read_file %}
         {% set state = last_read_file.reading_state %}
         {% set pct = ((state.current_page / last_read_file.total_pages) * 100) | round if state and last_read_file.total_pages > 0 else 0 %}
         {% set pages_left = (last_read_file.total_pages - state.current_page) if state and last_read_file.total_pages > 0 else 0 %}
@@ -66,7 +123,7 @@
                                 다음 권: 제{{ next_volume_file.volume_number }}권 바로가기 ⏭️
                             </a>
                             {% endif %}
-                            <button class="isbn-btn lounge-isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}">ISBN 정보 수정</button>
+                            <button type="button" class="isbn-btn lounge-isbn-btn" data-file-id="{{ last_read_file.id }}" data-book-title="{{ last_read_file.title or last_read_file.book.title }}" data-volume-number="{{ last_read_file.volume_number }}">ISBN 정보 수정</button>
                         </div>
                     </div>
                 </div>
