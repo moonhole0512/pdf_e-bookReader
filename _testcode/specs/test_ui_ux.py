@@ -173,5 +173,35 @@ class TestUIUXEnhancements(unittest.TestCase):
             db.session.delete(test_book)
             db.session.commit()
 
+    def test_pagination_clean_url_and_safe_reload(self):
+        """Verify pagination links target root URL and direct /api/books navigation redirects safely."""
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        # 1. Direct browser navigation to /api/books?page=2 must redirect to /?page=2
+        resp_direct = self.client.get('/api/books?page=2', headers={
+            'Sec-Fetch-Dest': 'document',
+            'Accept': 'text/html'
+        })
+        self.assertEqual(resp_direct.status_code, 302)
+        self.assertIn('/?page=2', resp_direct.headers.get('Location', ''))
+
+        # 2. AJAX fetch returns book-list fragment with 200 OK
+        resp_ajax = self.client.get('/api/books?page=2', headers={
+            'X-Requested-With': 'XMLHttpRequest'
+        })
+        self.assertEqual(resp_ajax.status_code, 200)
+        html_ajax = resp_ajax.get_data(as_text=True)
+        # Pagination links must target /?page= instead of /api/books
+        self.assertNotIn('/api/books?page=', html_ajax)
+
+        # 3. Reloading main page with page query param (?page=2) renders complete layout
+        resp_page2 = self.client.get('/?page=2')
+        self.assertEqual(resp_page2.status_code, 200)
+        html_page2 = resp_page2.get_data(as_text=True)
+        self.assertIn('reading-lounge-section', html_page2)
+        self.assertIn('all-books-section', html_page2)
+
 if __name__ == '__main__':
     unittest.main()

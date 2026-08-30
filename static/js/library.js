@@ -756,14 +756,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pageLink && !pageLink.closest('.page-item.disabled')) {
                     e.preventDefault();
                     const url = new URL(pageLink.href);
-                    const page = url.searchParams.get('page');
+                    const page = url.searchParams.get('page') || '1';
                     const searchQuery = url.searchParams.get('search_query') || '';
 
                     try {
-                        const response = await fetch(`/api/books?page=${page}&search_query=${encodeURIComponent(searchQuery)}`);
+                        const response = await fetch(`/api/books?page=${page}&search_query=${encodeURIComponent(searchQuery)}`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
                         const html = await response.text();
                         allBooksSectionContent.innerHTML = html;
-                        history.pushState({ page: page, search_query: searchQuery }, '', url.href);
+
+                        // Maintain a clean, human-friendly URL (e.g. /?page=2) that reloads correctly
+                        const displayUrl = new URL(window.location.origin);
+                        displayUrl.pathname = '/';
+                        if (parseInt(page, 10) > 1) {
+                            displayUrl.searchParams.set('page', page);
+                        }
+                        if (searchQuery) {
+                            displayUrl.searchParams.set('search_query', searchQuery);
+                        }
+
+                        history.pushState({ page: page, search_query: searchQuery }, '', displayUrl.toString());
+
+                        // Smooth scroll to the bookshelf section
+                        const shelfSection = document.getElementById('all-books-section') || allBooksSectionContent;
+                        if (shelfSection) {
+                            shelfSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
                     } catch (error) {
                         console.error('Error fetching pagination content:', error);
                     }
@@ -772,16 +791,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Handle browser back/forward buttons
             window.addEventListener('popstate', async (e) => {
-                if (e.state && e.state.page) {
-                    const page = e.state.page;
-                    const searchQuery = e.state.search_query || '';
-                    try {
-                        const response = await fetch(`/api/books?page=${page}&search_query=${encodeURIComponent(searchQuery)}`);
-                        const html = await response.text();
-                        allBooksSectionContent.innerHTML = html;
-                    } catch (error) {
-                        console.error('Error fetching pagination content on popstate:', error);
-                    }
+                const page = (e.state && e.state.page) ? e.state.page : (new URL(window.location.href).searchParams.get('page') || '1');
+                const searchQuery = (e.state && e.state.search_query !== undefined) ? e.state.search_query : (new URL(window.location.href).searchParams.get('search_query') || '');
+
+                try {
+                    const response = await fetch(`/api/books?page=${page}&search_query=${encodeURIComponent(searchQuery)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const html = await response.text();
+                    allBooksSectionContent.innerHTML = html;
+                } catch (error) {
+                    console.error('Error fetching pagination content on popstate:', error);
                 }
             });
         }

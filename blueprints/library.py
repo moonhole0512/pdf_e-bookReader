@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, g, jsonify
+from flask import Blueprint, render_template, request, g, jsonify, redirect, url_for
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from models import db, Book, File, ReadingState
@@ -116,6 +116,13 @@ def index():
 def get_books():
     page = request.args.get('page', 1, type=int)
     search_query = request.args.get('search_query', '').strip()
+
+    # Guard: If user visits /api/books directly in browser address bar, redirect to the full index view
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+              request.headers.get('Sec-Fetch-Dest') == 'empty' or \
+              'text/html' not in request.headers.get('Accept', '')
+    if not is_ajax and request.headers.get('Sec-Fetch-Dest') == 'document':
+        return redirect(url_for('library.index', page=page, search_query=search_query))
 
     all_books_query = Book.query.order_by(Book.title)
     if search_query:
