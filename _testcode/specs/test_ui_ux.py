@@ -138,6 +138,12 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('reading-lounge-grid', html)
         self.assertIn('reading-lounge-card', html)
 
+        # Confirm Korean-only badge and unified ISBN button
+        self.assertIn('📖 이어 읽기', html)
+        self.assertNotIn('NOW READING', html)
+        self.assertIn('lounge-isbn-btn', html)
+        self.assertNotIn('ISBN 정보 수정', html)
+
         # Confirm CSS supports count-4 and 2x2 grid
         with open('static/css/style.css', 'r', encoding='utf-8') as f:
             css = f.read()
@@ -404,6 +410,30 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('.vol-isbn-btn {', css)
         self.assertIn('.volume-modal-close-pill {', css)
         self.assertIn('min-height: 36px;', css)
+
+    def test_isbn_search_loading_card_and_user_feedback(self):
+        """Verify the rich informative loading card in ISBN modal with pulse visual and book context."""
+        with open('static/js/library.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. Loading UI components in JavaScript
+        self.assertIn('renderSearchLoading', js)
+        self.assertIn('isbn-search-loading-card', js)
+        self.assertIn('search-pulse-visual', js)
+        self.assertIn('search-pulse-core', js)
+        self.assertIn('search-target-pill', js)
+        self.assertIn('search-step-desc', js)
+        self.assertIn('도서 정보 검색 중', js)
+
+        # 2. Modern Glassmorphic & Pulse Animation styles in CSS
+        self.assertIn('.isbn-search-loading-card {', css)
+        self.assertIn('.search-pulse-visual {', css)
+        self.assertIn('@keyframes radarPulse {', css)
+        self.assertIn('.search-target-pill {', css)
+        self.assertIn('.search-target-vol-badge {', css)
+        self.assertIn('.search-step-desc {', css)
 
 if __name__ == '__main__':
     unittest.main()

@@ -21,6 +21,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Functions ---
 
+    const renderSearchLoading = (targetTitle, volumeNumber = null) => {
+        const volText = volumeNumber ? `<span class="search-target-vol-badge">제${volumeNumber}권</span>` : '';
+        return `
+            <div class="isbn-search-loading-card">
+                <div class="search-pulse-visual">
+                    <div class="search-pulse-ring"></div>
+                    <div class="search-pulse-ring pulse-delay"></div>
+                    <div class="search-pulse-core">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="search-loading-content">
+                    <h4 class="search-loading-title">도서 정보 검색 중</h4>
+                    <div class="search-target-pill">
+                        <span class="target-title-text" title="${targetTitle}">${targetTitle}</span>
+                        ${volText}
+                    </div>
+                    <p class="search-step-desc">알라딘 · Google Books · Amazon 서지 데이터베이스에서<br>고화질 원본 표지와 작가·도서 정보를 정밀 조회하고 있습니다.</p>
+                </div>
+            </div>
+        `;
+    };
+
     const openIsbnModal = async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -41,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
             closeVolumeModal();
         }
 
-        // Clear previous results and show loading
-        resultsDiv.innerHTML = '<div class="loader"></div><p style="text-align: center;">책 정보 자동 검색 중...</p>';
+        // Clear previous results and show rich informative loading state
+        resultsDiv.innerHTML = renderSearchLoading(bookTitle, volumeNumber);
         registerBtn.disabled = true;
         registerBtn.textContent = '등록';
         selectedCoverUrl = null;
@@ -338,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = isbnInput.value.trim();
         if (!query) return;
 
-        resultsDiv.innerHTML = '<div class="loader"></div><p style="text-align: center;">책 정보 검색 중...</p>';
+        resultsDiv.innerHTML = renderSearchLoading(query, null);
         registerBtn.disabled = true;
 
         try {
