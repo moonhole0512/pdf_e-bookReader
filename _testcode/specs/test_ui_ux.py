@@ -127,5 +127,40 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('reading-lounge-grid', html)
         self.assertIn('reading-lounge-card', html)
 
+    def test_file_update_api_and_book_sync(self):
+        """Verify /api/file/update saves title, author, and cover, synchronizing parent Book."""
+        from models import File
+        with self.client.session_transaction() as sess:
+            user = User.query.filter_by(username="Gruzam").first()
+            sess['user_id'] = user.id
+
+        # Pick first file
+        file_obj = File.query.first()
+        self.assertIsNotNone(file_obj)
+
+        new_title = "나와 호랑이님 1"
+        new_author = "카넬, 영인"
+        new_cover = "https://image.aladin.co.kr/product/823/45/cover500/8926780538_2.jpg"
+
+        resp = self.client.post('/api/file/update', json={
+            'file_id': file_obj.id,
+            'title': new_title,
+            'author': new_author,
+            'cover_url': new_cover
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data.get('success'))
+        self.assertEqual(data['file']['title'], new_title)
+        self.assertEqual(data['file']['author'], new_author)
+        self.assertEqual(data['file']['cover_url'], new_cover)
+
+        # Check DB persistence
+        reloaded_file = db.session.get(File, file_obj.id)
+        self.assertEqual(reloaded_file.title, new_title)
+        self.assertEqual(reloaded_file.cover_url, new_cover)
+        if reloaded_file.book and reloaded_file.volume_number == 1:
+            self.assertEqual(reloaded_file.book.cover_url, new_cover)
+
 if __name__ == '__main__':
     unittest.main()

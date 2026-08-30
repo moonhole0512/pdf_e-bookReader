@@ -116,6 +116,18 @@ def update_file_info():
     if 'cover_url' in data and data['cover_url']:
         file_obj.cover_url = data['cover_url']
 
+    # Synchronize parent Book record (cover, author, clean title)
+    if file_obj.book:
+        if file_obj.volume_number == 1 or not file_obj.book.cover_url:
+            if 'cover_url' in data and data['cover_url']:
+                file_obj.book.cover_url = data['cover_url']
+        if not file_obj.book.author or file_obj.book.author in ("Unknown", "알 수 없음"):
+            if 'author' in data and data['author']:
+                file_obj.book.author = data['author']
+        if file_obj.volume_number == 1 and 'title' in data and data['title']:
+            from services.book_enricher import clean_book_title
+            file_obj.book.title = clean_book_title(data['title'])
+
     db.session.commit()
     return jsonify({
         "success": True,

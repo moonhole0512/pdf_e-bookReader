@@ -25,6 +25,7 @@
 - [x] [Implementation] Step 20: Responsive Multi-Book Now Reading Lounge - Enhanced top reading lounge to dynamically display up to 3 distinct recent books, adapting gracefully across desktop (3 columns), tablet (2 columns), and mobile (1 column) without duplicating books in the secondary reading shelf (Evaluator subagent PASS)
 - [x] [Debugging] Step 21: Out-of-Print Novel Discovery & Exact ISBN Lookup Resolution - Resolved root cause where ISBN queries were rejected by title-string match filters, bypassed relevance checks for 10/13-digit ISBNs, expanded search target to include Aladin eBook to discover out-of-print original novels (e.g. 나와 호랑이님 1권 / 카넬, 영인), and prioritized Aladin ISBN lookup to prevent Google Books 429 quota failures (Evaluator subagent PASS)
 - [x] [Debugging] Step 22: Unnumbered Volume 1 Novel Ranking & Accurate Cover Resolution - Implemented `isbn_10_to_13` checksum conversion (transforming 8926780538 to 9788926780534), added bare volume 1 title scoring bonus (+50) and comic/webtoon penalization (-60) with novel publisher boosts (+40), added multi-page search (pages 1-2) with bare-title variations for volume 1, and restricted eBook searches to unpolluted fallback, placing original novel 1권 (카넬, 영인 / 9788926780534) firmly at rank #1 (Score 190 vs Comic 80) without late-volume digital covers (Evaluator subagent PASS)
+- [x] [Debugging] Step 23: ISBN Modal Multiple-Candidate Registration Unresponsiveness Resolution - Fixed root cause where `registerInfo` threw uncaught `TypeError` reading `#result-title` which did not exist in multiple-results mode, introduced global `selectedBookData` state capturing all candidate attributes upon click, added live selection summary box (`#selected-book-summary`) with checkmark indicator and auto-selection of #1 novel candidate, added button loading state ("등록 중...") and automatic `location.reload()` refresh, synchronized parent Book cover/author in `/api/file/update`, and added automated test spec `test_file_update_api_and_book_sync` (Evaluator subagent PASS)
 
 ## In progress
 
@@ -34,8 +35,8 @@
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
-- 20/20 automated tests passed in `_testcode/specs/` (including `test_enricher.py` and `test_ui_ux.py`).
-- Evaluator subagent verified Step 22 items and confirmed PASS.
+- 21/21 automated tests passed in `_testcode/specs/` (including `test_ui_ux.py`).
+- Evaluator subagent verified Step 23 items and confirmed PASS.
 
 
 

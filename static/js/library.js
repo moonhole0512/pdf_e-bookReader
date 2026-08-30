@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeVolumeModalBtn = document.getElementById('volume-modal-close-btn');
 
     let selectedCoverUrl = null;
+    let selectedBookData = null; // Stores { title, author, cover_url, isbn_13, isbn_10 }
 
     // --- Functions ---
 
@@ -43,6 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear previous results and show loading
         resultsDiv.innerHTML = '<div class="loader"></div><p style="text-align: center;">책 정보 자동 검색 중...</p>';
         registerBtn.disabled = true;
+        registerBtn.textContent = '등록';
+        selectedCoverUrl = null;
+        selectedBookData = null;
         isbnInput.value = ''; // Clear manual ISBN input
 
         try {
@@ -70,13 +74,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const displaySingleResult = (data) => {
         resultsDiv.classList.remove('has-multiple-results');
-        selectedCoverUrl = data.thumbnail;
+        selectedCoverUrl = data.thumbnail || null;
+        selectedBookData = {
+            title: data.title || '',
+            author: data.author || '',
+            cover_url: data.thumbnail || '',
+            isbn_13: data.isbn_13 || '',
+            isbn_10: data.isbn_10 || ''
+        };
         
         let imagesHtml = '';
         if (data.thumbnail) {
             imagesHtml = `<img src="${data.thumbnail}" alt="Book Cover" id="cover-preview-img" class="cover-preview selected">`;
         } else {
-            const title = data.title || document.getElementById('result-title').textContent;
+            const title = data.title || '도서';
             let query = title;
             if (data.volume_number && !title.includes(String(data.volume_number))) {
                 query += ` ${data.volume_number}`;
@@ -107,31 +118,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!data.thumbnail) {
             const noCoverMessage = document.getElementById('no-cover-message');
             document.getElementById('manual-cover-url').addEventListener('input', (e) => {
-                const url = e.target.value;
+                const url = e.target.value.trim();
                 const previewImg = document.getElementById('cover-preview-img');
                 if (url) {
                     previewImg.src = url;
                     previewImg.style.display = 'block';
                     selectedCoverUrl = url;
+                    if (selectedBookData) selectedBookData.cover_url = url;
                     if (noCoverMessage) noCoverMessage.style.display = 'none';
                     document.getElementById('cover-search-results').innerHTML = '';
+                    registerBtn.disabled = false;
                 } else {
                     previewImg.style.display = 'none';
                     if (noCoverMessage) noCoverMessage.style.display = 'block';
+                    registerBtn.disabled = true;
                 }
             });
         }
 
-        registerBtn.disabled = false;
+        registerBtn.disabled = !selectedCoverUrl;
+        registerBtn.textContent = '등록';
     };
 
     const displayMultipleResults = (results) => {
         resultsDiv.classList.add('has-multiple-results');
-        resultsDiv.innerHTML = '<p>여러 결과가 검색되었습니다. 등록할 책을 선택해주세요.</p>';
+        resultsDiv.innerHTML = '<p style="margin-bottom: 12px; font-weight: 500; color: #a1a1aa;">여러 결과가 검색되었습니다. 등록할 책을 선택해주세요:</p>';
         const selectionGrid = document.createElement('div');
         selectionGrid.className = 'book-grid';
 
-        results.forEach(book => {
+        results.forEach((book, idx) => {
             const bookCard = document.createElement('div');
             bookCard.className = 'book-card-small';
             bookCard.dataset.title = book.title;
@@ -148,12 +163,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="book-info-small">
                     <p title="${book.title}">${book.title}</p>
                     <span title="${book.author || ''}">${book.author || '저자 미상'}</span>
+                    ${book.isbn_13 ? `<small class="isbn-tag" style="display:block; font-size: 10px; color: #8e8e93; margin-top:2px;">${book.isbn_13}</small>` : ''}
                 </div>
             `;
             selectionGrid.appendChild(bookCard);
         });
 
         resultsDiv.appendChild(selectionGrid);
+
+        // Placeholder for live selection confirmation box
+        const summaryBox = document.createElement('div');
+        summaryBox.id = 'selected-book-summary';
+        resultsDiv.appendChild(summaryBox);
 
         selectionGrid.addEventListener('click', (e) => {
             const selectedCard = e.target.closest('.book-card-small');
@@ -167,18 +188,37 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add new selection
             selectedCard.classList.add('selected');
 
-            // Populate preview with the selected candidate
-            const selectedBook = {
-                title: selectedCard.dataset.title,
-                author: selectedCard.dataset.author,
-                thumbnail: selectedCard.dataset.coverUrl,
-                isbn_13: selectedCard.dataset.isbn13,
-                isbn_10: selectedCard.dataset.isbn10
+            // Populate selectedBookData with the chosen candidate
+            selectedBookData = {
+                title: selectedCard.dataset.title || '',
+                author: selectedCard.dataset.author || '',
+                cover_url: selectedCard.dataset.coverUrl || '',
+                isbn_13: selectedCard.dataset.isbn13 || '',
+                isbn_10: selectedCard.dataset.isbn10 || ''
             };
 
-            selectedCoverUrl = selectedBook.thumbnail;
+            selectedCoverUrl = selectedBookData.cover_url;
+
+            // Update live summary box
+            summaryBox.className = 'selected-summary-box';
+            summaryBox.innerHTML = `
+                <div class="summary-check-icon">✓ 선택됨</div>
+                <div class="summary-details">
+                    <p><strong>제목:</strong> ${selectedBookData.title}</p>
+                    <p><strong>저자:</strong> ${selectedBookData.author || '저자 미상'}</p>
+                    ${selectedBookData.isbn_13 ? `<p><strong>ISBN:</strong> ${selectedBookData.isbn_13}</p>` : ''}
+                </div>
+            `;
+
             registerBtn.disabled = !selectedCoverUrl;
+            registerBtn.textContent = '등록';
         });
+
+        // Auto-select the first candidate (highest scored) if available
+        const firstCard = selectionGrid.querySelector('.book-card-small');
+        if (firstCard) {
+            firstCard.click();
+        }
     };
 
     const closeIsbnModal = () => {
@@ -187,7 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsDiv.classList.remove('has-multiple-results');
         isbnInput.value = '';
         registerBtn.disabled = true;
+        registerBtn.textContent = '등록';
         selectedCoverUrl = null;
+        selectedBookData = null;
         isbnInput.style.display = 'block'; // Ensure manual input is visible next time
         searchBtn.style.display = 'block'; // Ensure manual search button is visible next time
     };
@@ -297,13 +339,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const registerInfo = async () => {
         const fileId = fileIdInput.value;
-        const title = document.getElementById('result-title').textContent;
-        const author = document.getElementById('result-author').textContent;
+        if (!fileId) {
+            alert('대상 도서 파일을 식별할 수 없습니다.');
+            return;
+        }
 
-        if (!selectedCoverUrl) {
+        // Determine title, author, and cover safely from selectedBookData or DOM
+        let title = '';
+        let author = '';
+        let coverUrl = selectedCoverUrl;
+
+        if (selectedBookData) {
+            title = selectedBookData.title || '';
+            author = selectedBookData.author || '';
+            coverUrl = selectedBookData.cover_url || coverUrl;
+        } else {
+            const titleEl = document.getElementById('result-title');
+            const authorEl = document.getElementById('result-author');
+            if (titleEl) title = titleEl.textContent;
+            if (authorEl) author = authorEl.textContent;
+        }
+
+        if (!coverUrl) {
             alert('표지 이미지가 선택되지 않았습니다.');
             return;
         }
+
+        registerBtn.disabled = true;
+        registerBtn.textContent = '등록 중...';
 
         try {
             const response = await fetch('/api/file/update', {
@@ -313,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     file_id: fileId,
                     title: title,
                     author: author,
-                    cover_url: selectedCoverUrl
+                    cover_url: coverUrl
                 })
             });
 
@@ -321,21 +384,19 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const data = await response.json();
 
-            // Update card on main page (for last_read_file)
-            const cardToUpdate = document.querySelector(`.isbn-btn[data-file-id='${fileId}']`);
-            if (cardToUpdate) {
-                const parentCard = cardToUpdate.closest('.book-card');
-                if(parentCard) {
-                    parentCard.querySelector('img').src = data.file.cover_url;
-                    parentCard.querySelector('h3').textContent = data.file.title;
-                    parentCard.querySelector('.book-info p').textContent = data.file.author;
-                }
-            }
-
+            showToast('도서 정보가 성공적으로 등록되었습니다!');
             closeIsbnModal();
 
+            // Refresh library view after short delay so updated cover and title appear
+            setTimeout(() => {
+                location.reload();
+            }, 500);
+
         } catch (error) {
+            console.error('Error registering book info:', error);
             alert('책 정보 업데이트에 실패했습니다.');
+            registerBtn.disabled = false;
+            registerBtn.textContent = '등록';
         }
     };
 
