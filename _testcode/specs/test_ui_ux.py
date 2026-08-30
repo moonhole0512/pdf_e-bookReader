@@ -129,38 +129,49 @@ class TestUIUXEnhancements(unittest.TestCase):
 
     def test_file_update_api_and_book_sync(self):
         """Verify /api/file/update saves title, author, and cover, synchronizing parent Book."""
-        from models import File
+        from models import Book, File
         with self.client.session_transaction() as sess:
             user = User.query.filter_by(username="Gruzam").first()
             sess['user_id'] = user.id
 
-        # Pick first file
-        file_obj = File.query.first()
-        self.assertIsNotNone(file_obj)
+        # Create an isolated temporary test Book and File to prevent touching live books
+        test_book = Book(title="Temp Test Book", author="Temp Author")
+        db.session.add(test_book)
+        db.session.commit()
 
-        new_title = "나와 호랑이님 1"
-        new_author = "카넬, 영인"
-        new_cover = "https://image.aladin.co.kr/product/823/45/cover500/8926780538_2.jpg"
+        test_file = File(book_id=test_book.id, file_path="temp_test_file_unique_path.pdf", volume_number=1)
+        db.session.add(test_file)
+        db.session.commit()
 
-        resp = self.client.post('/api/file/update', json={
-            'file_id': file_obj.id,
-            'title': new_title,
-            'author': new_author,
-            'cover_url': new_cover
-        })
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertTrue(data.get('success'))
-        self.assertEqual(data['file']['title'], new_title)
-        self.assertEqual(data['file']['author'], new_author)
-        self.assertEqual(data['file']['cover_url'], new_cover)
+        try:
+            new_title = "Updated Test Title 1"
+            new_author = "Updated Test Author"
+            new_cover = "https://image.aladin.co.kr/product/test_cover500.jpg"
 
-        # Check DB persistence
-        reloaded_file = db.session.get(File, file_obj.id)
-        self.assertEqual(reloaded_file.title, new_title)
-        self.assertEqual(reloaded_file.cover_url, new_cover)
-        if reloaded_file.book and reloaded_file.volume_number == 1:
+            resp = self.client.post('/api/file/update', json={
+                'file_id': test_file.id,
+                'title': new_title,
+                'author': new_author,
+                'cover_url': new_cover
+            })
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertTrue(data.get('success'))
+            self.assertEqual(data['file']['title'], new_title)
+            self.assertEqual(data['file']['author'], new_author)
+            self.assertEqual(data['file']['cover_url'], new_cover)
+
+            # Check DB persistence
+            reloaded_file = db.session.get(File, test_file.id)
+            self.assertEqual(reloaded_file.title, new_title)
+            self.assertEqual(reloaded_file.cover_url, new_cover)
+            self.assertIsNotNone(reloaded_file.book)
             self.assertEqual(reloaded_file.book.cover_url, new_cover)
+        finally:
+            # Clean up temporary test data cleanly
+            db.session.delete(test_file)
+            db.session.delete(test_book)
+            db.session.commit()
 
 if __name__ == '__main__':
     unittest.main()
