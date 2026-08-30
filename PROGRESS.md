@@ -24,6 +24,7 @@
 - [x] [Debugging] Step 19: Reading Badge Redesign & Tooltip Collision Prevention - Eliminated duplicate CSS rule causing vertical stretching of `.reading-badge`, upgraded to sleek glassmorphic pill badge (`📖 읽는 중`), removed duplicate title tooltip from `.isbn-btn` and added automatic parent title suppression on hover (Evaluator subagent PASS)
 - [x] [Implementation] Step 20: Responsive Multi-Book Now Reading Lounge - Enhanced top reading lounge to dynamically display up to 3 distinct recent books, adapting gracefully across desktop (3 columns), tablet (2 columns), and mobile (1 column) without duplicating books in the secondary reading shelf (Evaluator subagent PASS)
 - [x] [Debugging] Step 21: Out-of-Print Novel Discovery & Exact ISBN Lookup Resolution - Resolved root cause where ISBN queries were rejected by title-string match filters, bypassed relevance checks for 10/13-digit ISBNs, expanded search target to include Aladin eBook to discover out-of-print original novels (e.g. 나와 호랑이님 1권 / 카넬, 영인), and prioritized Aladin ISBN lookup to prevent Google Books 429 quota failures (Evaluator subagent PASS)
+- [x] [Debugging] Step 22: Unnumbered Volume 1 Novel Ranking & Accurate Cover Resolution - Implemented `isbn_10_to_13` checksum conversion (transforming 8926780538 to 9788926780534), added bare volume 1 title scoring bonus (+50) and comic/webtoon penalization (-60) with novel publisher boosts (+40), added multi-page search (pages 1-2) with bare-title variations for volume 1, and restricted eBook searches to unpolluted fallback, placing original novel 1권 (카넬, 영인 / 9788926780534) firmly at rank #1 (Score 190 vs Comic 80) without late-volume digital covers (Evaluator subagent PASS)
 
 ## In progress
 
@@ -34,7 +35,7 @@
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
 - 20/20 automated tests passed in `_testcode/specs/` (including `test_enricher.py` and `test_ui_ux.py`).
-- Evaluator subagent verified Step 21 items (ISBN regex detection, title/volume filter bypass, Aladin eBook target expansion) and confirmed PASS.
+- Evaluator subagent verified Step 22 items and confirmed PASS.
 
 
 

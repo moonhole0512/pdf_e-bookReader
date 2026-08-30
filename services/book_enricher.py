@@ -18,6 +18,16 @@ def clean_book_title(raw_title: str) -> str:
     t = re.sub(r'[\s_-]*0*\d+(?:\.\d+)?$', '', t)
     return t.strip()
 
+def isbn_10_to_13(isbn_10: str) -> str:
+    """Converts a 10-digit ISBN to a standard 13-digit EAN/ISBN with recalculating checksum."""
+    clean_10 = re.sub(r'[-\s]', '', isbn_10)
+    if len(clean_10) != 10 or not clean_10[:9].isdigit():
+        return isbn_10
+    core = "978" + clean_10[:9]
+    checksum = sum(int(digit) * (1 if i % 2 == 0 else 3) for i, digit in enumerate(core))
+    check_digit = (10 - (checksum % 10)) % 10
+    return core + str(check_digit)
+
 def has_korean(text: str) -> bool:
     """Checks if text contains any Hangul syllables."""
     return bool(re.search(r'[가-힣]', text))
@@ -128,7 +138,8 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
         if cover_url:
             isbn_m = re.search(r'/cover\w*/([a-zA-Z0-9]+)_\d+\.', cover_url)
             if isbn_m:
-                isbn = isbn_m.group(1)
+                raw_isbn = isbn_m.group(1)
+                isbn = isbn_10_to_13(raw_isbn) if len(raw_isbn) == 10 else raw_isbn
 
         # Scoring candidate
         score = 50
@@ -139,6 +150,10 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
             if target_vol in explicit_nums:
                 score += 50 # Strongly favor candidate with exact target volume number!
                 has_explicit_target_num = True
+            elif target_vol == 1 and not explicit_nums:
+                # Volume 1 original title bonus (many light novels release vol 1 without volume number)
+                score += 50
+                has_explicit_target_num = True
 
         if norm_base == norm_cand:
             score += 30 if (not target_vol or has_explicit_target_num) else 10
@@ -148,12 +163,12 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
         if cover_url:
             score += 20
 
-        # Genre adjustment: prefer original novel/light novel over comic adaptation
+        # Genre adjustment: prefer original novel/light novel over comic/webtoon adaptation
         comb_text = f"{cand_title} {publisher_info}".lower()
-        if any(c in comb_text for c in ['(만화)', '코믹', '만화판', '앤솔로지', '코믹스']):
-            score -= 40
-        if any(n in comb_text for n in ['라이트노벨', '소설', '문고', '문학', '노블']):
-            score += 30
+        if any(c in comb_text for c in ['(만화)', '코믹', '만화판', '앤솔로지', '코믹스', '웹툰', '웹툰비즈']):
+            score -= 60
+        if any(n in comb_text for n in ['라이트노벨', '소설', '문고', '문학', '노블', '시드노벨', 'seed novel', '디앤씨미디어']):
+            score += 40
 
         candidates.append({
             "title": cand_title,
@@ -189,15 +204,16 @@ def fetch_aladin_metadata(title: str, volume: Optional[int] = None, author_hint:
     for target in targets:
         for term in search_terms:
             encoded = urllib.parse.quote(term)
-            url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget={target}&SearchWord={encoded}"
-            try:
-                r = requests.get(url, headers=HEADERS, timeout=6)
-                if r.status_code == 200:
-                    candidates = parse_aladin_search_results(r.text, clean_t, volume)
-                    if candidates:
-                        return candidates[0]
-            except Exception as e:
-                logger.debug(f"Aladin search error for '{term}': {e}")
+            for page in [1, 2]:
+                url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget={target}&SearchWord={encoded}&page={page}"
+                try:
+                    r = requests.get(url, headers=HEADERS, timeout=6)
+                    if r.status_code == 200:
+                        candidates = parse_aladin_search_results(r.text, clean_t, volume)
+                        if candidates:
+                            return candidates[0]
+                except Exception as e:
+                    logger.debug(f"Aladin search error for '{term}' p{page}: {e}")
 
     return None
 
@@ -256,7 +272,8 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
     """
     Searches both Aladin and Google Books for a manual lookup query,
     returning a deduplicated list of candidates for the user to choose from.
-    Seamlessly handles both book titles and 10/13 digit ISBN inputs.
+    Seamlessly handles both book titles and 10/13 digit ISBN inputs,
+    and supports multi-page search for out-of-print or unnumbered volume 1 novels.
     """
     results = []
     seen_titles = set()
@@ -264,36 +281,60 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
     clean_num = re.sub(r'[-\s]', '', query)
     is_isbn = bool(re.fullmatch(r'\d{9}[\dX]|\d{13}', clean_num))
 
-    # 1. Search Aladin (Book + eBook for title, Book for ISBN)
-    clean_q = clean_num if is_isbn else clean_book_title(query)
-    search_q = clean_q if (is_isbn or not volume) else f"{clean_q} {volume}"
-    aladin_targets = ["Book", "All"] if is_isbn else ["Book", "eBook"]
+    # 1. Search Aladin
+    if is_isbn:
+        search_phrases = [clean_num]
+        aladin_targets = ["Book", "All"]
+        max_pages = 1
+    else:
+        clean_q = clean_book_title(query)
+        search_phrases = []
+        if volume and volume > 0:
+            search_phrases.append(f"{clean_q} {volume}")
+            if volume == 1:
+                # Volume 1 original novels often don't have '1' in their title
+                search_phrases.append(clean_q)
+        else:
+            search_phrases.append(clean_q)
+        aladin_targets = ["Book"]
+        max_pages = 2 # Search up to page 2 to find out-of-print books that slipped down in ranking
 
     for target in aladin_targets:
-        try:
-            url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget={target}&SearchWord={urllib.parse.quote(search_q)}"
-            r = requests.get(url, headers=HEADERS, timeout=6)
-            if r.status_code == 200:
-                aladin_cands = parse_aladin_search_results(r.text, clean_q, None if is_isbn else volume, is_isbn_query=is_isbn)
-                for c in aladin_cands[:6]:
-                    norm_key = f"{c['title']}_{c['author']}".lower()
-                    if norm_key not in seen_titles:
-                        seen_titles.add(norm_key)
-                        results.append({
-                            "title": c['title'],
-                            "author": c['author'],
-                            "thumbnail": c.get('cover_url'),
-                            "isbn_13": clean_num if (is_isbn and len(clean_num) == 13) else c.get('isbn'),
-                            "isbn_10": clean_num if (is_isbn and len(clean_num) == 10) else None,
-                            "source": "Aladin"
-                        })
-                if is_isbn and results:
-                    break
-        except Exception as e:
-            logger.debug(f"Candidate search (Aladin {target}) error: {e}")
+        for phrase in search_phrases:
+            for page in range(1, max_pages + 1):
+                try:
+                    url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget={target}&SearchWord={urllib.parse.quote(phrase)}&page={page}"
+                    r = requests.get(url, headers=HEADERS, timeout=6)
+                    if r.status_code == 200:
+                        aladin_cands = parse_aladin_search_results(r.text, phrase if is_isbn else clean_q, None if is_isbn else volume, is_isbn_query=is_isbn)
+                        for c in aladin_cands:
+                            norm_key = f"{c['title']}_{c['author']}".lower()
+                            if norm_key not in seen_titles:
+                                seen_titles.add(norm_key)
+                                results.append({
+                                    "title": c['title'],
+                                    "author": c['author'],
+                                    "thumbnail": c.get('cover_url'),
+                                    "isbn_13": clean_num if (is_isbn and len(clean_num) == 13) else c.get('isbn'),
+                                    "isbn_10": clean_num if (is_isbn and len(clean_num) == 10) else None,
+                                    "score": c.get('score', 0),
+                                    "source": "Aladin"
+                                })
+                    if is_isbn and results:
+                        break
+                except Exception as e:
+                    logger.debug(f"Candidate search (Aladin {target} p{page}) error: {e}")
+            if is_isbn and results:
+                break
+        if is_isbn and results:
+            break
+
+    # Sort results by score desc so original novel comes first
+    results.sort(key=lambda x: x.get('score', 0), reverse=True)
 
     # 2. Search Google Books
     try:
+        search_q = clean_num if is_isbn else (f"{clean_q} {volume}" if volume else clean_q)
         g_url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(search_q)}"
         gr = requests.get(g_url, timeout=5)
         if gr.status_code == 200:
