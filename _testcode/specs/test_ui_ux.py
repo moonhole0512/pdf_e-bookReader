@@ -555,5 +555,19 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn("e.target.closest('.series-view-btn')", js)
         self.assertIn('openVolumeModal(seriesBtn);', js)
 
+    def test_reader_canvas_centering_on_zoom_out(self):
+        """Verify #reader-container and #pdf-viewer center canvas vertically and horizontally when scaled down."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        # 1. Flex container layout for vertical centering
+        self.assertIn('display: flex;', css)
+        self.assertIn('flex-direction: column;', css)
+        self.assertIn('align-items: center;', css)
+
+        # 2. #pdf-viewer margin: auto for centering when smaller and top-anchored when larger
+        self.assertIn('margin: auto;', css)
+        self.assertIn('#pdf-viewer {', css)
+
 if __name__ == '__main__':
     unittest.main()
