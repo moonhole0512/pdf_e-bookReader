@@ -1818,23 +1818,30 @@ header nav a:hover {
 }
 
 /* --- Mobile Reader Floating Dock & Header --- */
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     #page-indicator {
-        top: 12px;
-        left: 12px;
+        top: calc(env(safe-area-inset-top) + 8px);
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-width: none;
+        box-sizing: border-box;
         padding: 5px 10px;
         gap: 6px;
         font-size: 0.78rem;
-        max-width: calc(100vw - 165px);
     }
 
     .reader-book-title {
-        max-width: 110px;
+        flex: 1 1 auto;
+        max-width: none;
+        min-width: 0;
     }
 
     #floating-controls.reader-floating-dock {
-        top: 12px;
-        right: 12px;
+        top: calc(env(safe-area-inset-top) + 56px);
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
         padding: 3px 6px;
         gap: 2px;
         border-radius: 20px;
@@ -1847,6 +1854,13 @@ header nav a:hover {
 
     .dock-btn svg {
         transform: scale(0.9);
+    }
+}
+
+/* Keep the centered mobile dock centered while it fades in Zen mode. */
+@media (max-width: 600px) {
+    #floating-controls.reader-floating-dock.reader-controls-hidden {
+        transform: translateX(-50%) translateY(-8px) !important;
     }
 }
 

@@ -246,6 +246,23 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertNotIn('translateX', page_ind_block)
         self.assertIn('translateY', page_ind_block)
 
+    def test_reader_mobile_header_stacks_without_overlap(self):
+        """Verify mobile reader title and control dock occupy separate rows."""
+        with open('static/css/style.css', 'r', encoding='utf-8') as f:
+            css = f.read()
+
+        mobile_header_start = css.index('/* --- Mobile Reader Floating Dock & Header --- */')
+        mobile_header_end = css.index('/* --- Added Enhancements:', mobile_header_start)
+        mobile_header = css[mobile_header_start:mobile_header_end]
+
+        self.assertIn('@media (max-width: 600px)', mobile_header)
+        self.assertIn('right: 10px;', mobile_header)
+        self.assertIn('max-width: none;', mobile_header)
+        self.assertIn('top: calc(env(safe-area-inset-top) + 56px);', mobile_header)
+        self.assertIn('left: 50%;', mobile_header)
+        self.assertIn('transform: translateX(-50%);', mobile_header)
+        self.assertIn('reader-controls-hidden', mobile_header)
+
     def test_touch_zones_default_cursor_and_svg_centering(self):
         """Verify touch zones keep default cursor and zone hints use centered SVGs."""
         with open('static/css/style.css', 'r', encoding='utf-8') as f:
