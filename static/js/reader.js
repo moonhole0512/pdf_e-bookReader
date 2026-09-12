@@ -95,6 +95,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRenderedScale = scale;
     let viewMode = savedViewMode || 'one'; // 'one', 'ltr', 'rtl'
 
+    // Keep the CSS size tied to the reader layout while rendering the backing
+    // canvas at the device's physical pixel density (e.g. 3x on iPhone Pro).
+    // Without this separation, mobile browsers stretch a low-resolution canvas
+    // across a Retina display and scanned pages look noticeably soft.
+    function configureHiDPICanvas(canvas, cssWidth, cssHeight) {
+        const outputScale = Math.max(1, window.devicePixelRatio || 1);
+        canvas.width = Math.max(1, Math.floor(cssWidth * outputScale));
+        canvas.height = Math.max(1, Math.floor(cssHeight * outputScale));
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+        return outputScale;
+    }
+
     // --- Load Color & Sharpen Settings ---
     let currentSharpen = localStorage.getItem(SHARPEN_KEY) || DEFAULT_SHARPEN;
     let currentBrightness = parseInt(localStorage.getItem(BRIGHTNESS_KEY) || DEFAULT_BRIGHTNESS, 10);
@@ -262,8 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     lastRenderedScale = currentScale;
-                    canvas.height = img.naturalHeight * currentScale;
-                    canvas.width = img.naturalWidth * currentScale;
+                    const cssWidth = img.naturalWidth * currentScale;
+                    const cssHeight = img.naturalHeight * currentScale;
+                    configureHiDPICanvas(canvas, cssWidth, cssHeight);
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     applyColorFilters();
@@ -302,9 +316,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             lastRenderedScale = currentScale;
             const viewport = page.getViewport({ scale: currentScale });
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            const renderContext = { canvasContext: canvas.getContext('2d'), viewport: viewport };
+            const outputScale = configureHiDPICanvas(canvas, viewport.width, viewport.height);
+            const renderContext = {
+                canvasContext: canvas.getContext('2d'),
+                viewport: viewport,
+                transform: outputScale !== 1
+                    ? [outputScale, 0, 0, outputScale, 0, 0]
+                    : null
+            };
             return page.render(renderContext).promise.then(() => {
                 applyColorFilters();
                 pageRendering = false;

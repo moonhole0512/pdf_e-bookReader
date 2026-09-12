@@ -682,5 +682,24 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('menuDismissTimestamp', js)
         self.assertIn('Date.now() - menuDismissTimestamp < 250', js)
 
+    def test_reader_renders_hidpi_canvas_without_css_upscaling(self):
+        """Verify PDF and replacement-image canvases render at device pixel density."""
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        # The helper must keep layout dimensions in CSS pixels while increasing
+        # the backing bitmap for Retina/mobile displays.
+        self.assertIn('function configureHiDPICanvas(canvas, cssWidth, cssHeight)', js)
+        self.assertIn('window.devicePixelRatio || 1', js)
+        self.assertIn('canvas.style.width = `${cssWidth}px`', js)
+        self.assertIn('canvas.style.height = `${cssHeight}px`', js)
+
+        # Both rendering paths must use the helper; PDF.js also needs the
+        # matching transform so its viewport remains in CSS-pixel coordinates.
+        self.assertIn('configureHiDPICanvas(canvas, cssWidth, cssHeight)', js)
+        self.assertIn('configureHiDPICanvas(canvas, viewport.width, viewport.height)', js)
+        self.assertIn('transform: outputScale !== 1', js)
+        self.assertIn('[outputScale, 0, 0, outputScale, 0, 0]', js)
+
 if __name__ == '__main__':
     unittest.main()
