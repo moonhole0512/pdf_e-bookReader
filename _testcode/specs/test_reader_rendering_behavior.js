@@ -81,12 +81,17 @@ function createHarness() {
         innerHeight: 800,
         localStorage,
         addEventListener() {},
-        open() {}
+        open() {},
+        // Keep navigation tests deterministic; the explicit preload test
+        // below invokes preloadAdjacentPages() directly.
+        requestIdleCallback() {}
     };
     const pendingRenders = new Map();
+    let pageCalls = 0;
     const pdfDoc = {
         numPages: 20,
         getPage(pageNumber) {
+            pageCalls += 1;
             return Promise.resolve({
                 getViewport({ scale }) { return { width: 100 * scale, height: 200 * scale }; },
                 render() {
@@ -113,7 +118,12 @@ function createHarness() {
     domListeners.DOMContentLoaded();
     window.__readerTestHooks.setPdfDocument(pdfDoc);
 
-    return { viewer: elements.get('pdf-viewer'), hooks: window.__readerTestHooks, pendingRenders };
+    return {
+        viewer: elements.get('pdf-viewer'),
+        hooks: window.__readerTestHooks,
+        pendingRenders,
+        getPageCalls: () => pageCalls
+    };
 }
 
 async function run() {
@@ -172,6 +182,44 @@ async function run() {
         pendingRenders.get(7).resolve();
         await flush();
         assert.deepStrictEqual(viewer.children.map((canvas) => canvas.dataset.virtualPage), [7, 6]);
+    }
+
+    {
+        const { viewer, hooks, pendingRenders, getPageCalls } = createHarness();
+        hooks.setPageNum(1);
+
+        const preloadPromise = hooks.preloadAdjacentPages();
+        await flush();
+        assert.strictEqual(getPageCalls(), 1, 'preload should start with the next page');
+        assert.ok(pendingRenders.has(2), 'the next page should render off-screen');
+
+        pendingRenders.get(2).resolve();
+        await preloadPromise;
+        assert.deepStrictEqual(Array.from(hooks.getCachedPageNumbers()), [2]);
+
+        const callsBeforeCacheHit = getPageCalls();
+        hooks.renderOnePage(2);
+        await flush();
+        assert.strictEqual(getPageCalls(), callsBeforeCacheHit, 'cached page should not render again');
+        assert.strictEqual(viewer.children[0].dataset.virtualPage, 2);
+    }
+
+    {
+        const { hooks, pendingRenders } = createHarness();
+        hooks.setPageNum(1);
+
+        const preloadPromise = hooks.preloadAdjacentPages();
+        await flush();
+        assert.ok(pendingRenders.has(2));
+
+        hooks.clearPageRenderCache();
+        pendingRenders.get(2).resolve();
+        await preloadPromise;
+        assert.deepStrictEqual(
+            Array.from(hooks.getCachedPageNumbers()),
+            [],
+            'cancelled cache generation must not be repopulated by an old preload'
+        );
     }
 
     console.log('reader rendering behavior: PASS');

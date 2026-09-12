@@ -726,9 +726,24 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('let renderGeneration = 0;', js)
         self.assertIn('const generation = ++renderGeneration;', js)
         self.assertIn('if (generation !== renderGeneration) return;', js)
-        self.assertIn('viewer.replaceChildren(canvas);', js)
-        self.assertIn('viewer.replaceChildren(canvas2, canvas1);', js)
+        self.assertIn('viewer.replaceChildren(readyCanvas);', js)
+        self.assertIn('viewer.replaceChildren(readyCanvas2, readyCanvas1);', js)
         self.assertNotIn("viewer.innerHTML = '';", js)
+
+    def test_reader_preloads_adjacent_pages_and_invalidates_cache(self):
+        """Verify adjacent pages are warmed off-screen and stale cache is cleared."""
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        self.assertIn('const pageRenderCache = new Map();', js)
+        self.assertIn('function getCachedPageCanvas(vNum)', js)
+        self.assertIn('async function preloadAdjacentPages()', js)
+        self.assertIn('function scheduleAdjacentPreload()', js)
+        self.assertIn('renderPage(vNum, canvas, true)', js)
+        self.assertIn('scheduleAdjacentPreload();', js)
+        self.assertIn('let pageCacheRevision = 0;', js)
+        self.assertIn('pageCacheRevision += 1;', js)
+        self.assertGreaterEqual(js.count('clearPageRenderCache();'), 5)
 
 if __name__ == '__main__':
     unittest.main()

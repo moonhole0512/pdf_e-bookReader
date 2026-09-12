@@ -95,6 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRenderedScale = scale;
     let viewMode = savedViewMode || 'one'; // 'one', 'ltr', 'rtl'
     let renderGeneration = 0;
+    const pageRenderCache = new Map();
+    const preloadInFlight = new Map();
+    let pageCacheRevision = 0;
 
     // Keep the CSS size tied to the reader layout while rendering the backing
     // canvas at the device's physical pixel density (e.g. 3x on iPhone Pro).
@@ -107,6 +110,35 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.style.width = `${cssWidth}px`;
         canvas.style.height = `${cssHeight}px`;
         return outputScale;
+    }
+
+    function getRenderSignature() {
+        return [
+            fitMode,
+            scale,
+            viewMode,
+            container.clientWidth,
+            container.clientHeight,
+            window.devicePixelRatio || 1,
+            pageCacheRevision
+        ].join('|');
+    }
+
+    function clearPageRenderCache() {
+        // Incrementing the revision also invalidates preload work already in
+        // flight; its completion cannot repopulate the cache for an old page
+        // edit or layout.
+        pageCacheRevision += 1;
+        pageRenderCache.clear();
+    }
+
+    function getCachedPageCanvas(vNum) {
+        const entry = pageRenderCache.get(vNum);
+        if (!entry || entry.signature !== getRenderSignature()) {
+            if (entry) pageRenderCache.delete(vNum);
+            return null;
+        }
+        return entry.canvas;
     }
 
     // --- Load Color & Sharpen Settings ---
@@ -225,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resp.ok) {
                 const data = await resp.json();
                 stagedEdits = data.edits || [];
+                clearPageRenderCache();
                 buildVirtualPageMap();
                 if (reRender) {
                     renderQueue(pageNum);
@@ -238,10 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Core Rendering Functions ---
-    function renderPage(vNum, canvas) {
-        pageRendering = true;
+    function renderPage(vNum, canvas, isPreload = false) {
+        if (!isPreload) pageRendering = true;
         if (!pdfDoc) {
-            pageRendering = false;
+            if (!isPreload) pageRendering = false;
             return Promise.resolve();
         }
 
@@ -275,33 +308,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             currentScale = availableHeight / img.naturalHeight;
                         }
                     }
-                    lastRenderedScale = currentScale;
+                    if (!isPreload) lastRenderedScale = currentScale;
                     const cssWidth = img.naturalWidth * currentScale;
                     const cssHeight = img.naturalHeight * currentScale;
                     configureHiDPICanvas(canvas, cssWidth, cssHeight);
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    applyColorFilters();
-                    pageRendering = false;
-                    if (pageNumPending !== null) {
-                        const pending = pageNumPending;
-                        pageNumPending = null;
-                        renderQueue(pending);
+                    if (!isPreload) {
+                        applyColorFilters();
+                        pageRendering = false;
+                        if (pageNumPending !== null) {
+                            const pending = pageNumPending;
+                            pageNumPending = null;
+                            renderQueue(pending);
+                        }
                     }
-                    resolve();
+                    resolve(canvas);
                 };
                 img.onerror = () => {
-                    renderOriginalPdfPage(origPageNum, canvas).then(resolve);
+                    renderOriginalPdfPage(origPageNum, canvas, isPreload).then(resolve);
                 };
                 img.src = `/api/page/override_image/${vInfo.edit.id}?t=${Date.now()}`;
             });
         }
 
         // 2. Standard PDF Page Render
-        return renderOriginalPdfPage(origPageNum, canvas);
+        return renderOriginalPdfPage(origPageNum, canvas, isPreload);
     }
 
-    function renderOriginalPdfPage(origPageNum, canvas) {
+    function renderOriginalPdfPage(origPageNum, canvas, isPreload = false) {
         return pdfDoc.getPage(origPageNum).then(page => {
             let currentScale = scale;
             if (fitMode !== 'custom') {
@@ -315,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentScale = availableHeight / unscaledViewport.height;
                 }
             }
-            lastRenderedScale = currentScale;
+            if (!isPreload) lastRenderedScale = currentScale;
             const viewport = page.getViewport({ scale: currentScale });
             const outputScale = configureHiDPICanvas(canvas, viewport.width, viewport.height);
             const renderContext = {
@@ -326,13 +361,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     : null
             };
             return page.render(renderContext).promise.then(() => {
-                applyColorFilters();
-                pageRendering = false;
-                if (pageNumPending !== null) {
-                    const pending = pageNumPending;
-                    pageNumPending = null;
-                    renderQueue(pending);
+                if (!isPreload) {
+                    applyColorFilters();
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        const pending = pageNumPending;
+                        pageNumPending = null;
+                        renderQueue(pending);
+                    }
                 }
+                return canvas;
             });
         });
     }
@@ -349,29 +387,118 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function getAdjacentPageSet(startPage) {
+        const totalPages = getTotalPages();
+        if (!pdfDoc || startPage < 1 || startPage > totalPages) return [];
+        const pages = [startPage];
+        if (viewMode !== 'one' && startPage + 1 <= totalPages) {
+            pages.push(startPage + 1);
+        }
+        return pages;
+    }
+
+    function preloadPage(vNum, signature) {
+        if (!pdfDoc || vNum < 1 || vNum > pdfDoc.numPages) {
+            return Promise.resolve();
+        }
+
+        const cached = pageRenderCache.get(vNum);
+        if (cached && cached.signature === signature) {
+            return Promise.resolve(cached.canvas);
+        }
+
+        const cacheKey = `${signature}:${vNum}`;
+        if (preloadInFlight.has(cacheKey)) {
+            return preloadInFlight.get(cacheKey);
+        }
+
+        const canvas = document.createElement('canvas');
+        const renderPromise = renderPage(vNum, canvas, true)
+            .then(() => {
+                // Discard work produced for an obsolete zoom/layout instead
+                // of letting it pollute the cache or consume retained memory.
+                if (getRenderSignature() === signature) {
+                    pageRenderCache.set(vNum, { signature, canvas });
+                }
+                return canvas;
+            })
+            .catch((error) => {
+                console.warn(`Failed to preload page ${vNum}:`, error);
+                return null;
+            })
+            .finally(() => {
+                preloadInFlight.delete(cacheKey);
+            });
+
+        preloadInFlight.set(cacheKey, renderPromise);
+        return renderPromise;
+    }
+
+    async function preloadAdjacentPages() {
+        if (!pdfDoc) return;
+
+        const increment = viewMode !== 'one' ? 2 : 1;
+        const nextPages = getAdjacentPageSet(pageNum + increment);
+        const previousPages = getAdjacentPageSet(pageNum - increment);
+        const pagesToKeep = new Set([...nextPages, ...previousPages]);
+
+        for (const cachedPage of pageRenderCache.keys()) {
+            if (!pagesToKeep.has(cachedPage)) pageRenderCache.delete(cachedPage);
+        }
+
+        const signature = getRenderSignature();
+        // Render the next page/spread first because it is the most likely
+        // immediate user action. Previous pages are warmed afterward.
+        for (const pageSet of [nextPages, previousPages]) {
+            if (getRenderSignature() !== signature) return;
+            await Promise.all(pageSet.map((vNum) => preloadPage(vNum, signature)));
+        }
+    }
+
+    function scheduleAdjacentPreload() {
+        const startPreload = () => {
+            preloadAdjacentPages().catch((error) => {
+                console.warn('Adjacent page preload failed:', error);
+            });
+        };
+
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(startPreload, { timeout: 150 });
+        } else {
+            setTimeout(startPreload, 0);
+        }
+    }
+
     function renderTwoPages(num, direction) {
         closeImageMenu();
         const generation = ++renderGeneration;
-        const canvas1 = document.createElement('canvas');
-        const canvas2 = document.createElement('canvas');
+        const cachedCanvas1 = getCachedPageCanvas(num);
+        const cachedCanvas2 = (num + 1 <= pdfDoc.numPages) ? getCachedPageCanvas(num + 1) : null;
+        const canvas1 = cachedCanvas1 || document.createElement('canvas');
+        const canvas2 = cachedCanvas2 || document.createElement('canvas');
 
-        const promises = [renderPage(num, canvas1)];
-        if (num + 1 <= pdfDoc.numPages) {
-            promises.push(renderPage(num + 1, canvas2));
-        }
+        const promises = [
+            cachedCanvas1 ? Promise.resolve(canvas1) : renderPage(num, canvas1),
+            (cachedCanvas2 || num + 1 > pdfDoc.numPages)
+                ? Promise.resolve(canvas2)
+                : renderPage(num + 1, canvas2)
+        ];
 
-        Promise.all(promises).then(() => {
+        Promise.all(promises).then(([readyCanvas1, readyCanvas2]) => {
             // Keep the previous spread visible until both new canvases are
             // fully rendered, then swap them in atomically. A newer request
             // wins if the user taps quickly while rendering is in progress.
             if (generation !== renderGeneration) return;
+            pageRenderCache.delete(num);
+            pageRenderCache.delete(num + 1);
             if (direction === 'rtl') {
-                viewer.replaceChildren(canvas2, canvas1);
+                viewer.replaceChildren(readyCanvas2, readyCanvas1);
             } else { // 'ltr'
-                viewer.replaceChildren(canvas1, canvas2);
+                viewer.replaceChildren(readyCanvas1, readyCanvas2);
             }
             container.scrollTop = 0;
             container.scrollLeft = 0;
+            scheduleAdjacentPreload();
         });
 
         pageNum = num;
@@ -381,14 +508,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderOnePage(num) {
         closeImageMenu();
         const generation = ++renderGeneration;
-        const canvas = document.createElement('canvas');
-        renderPage(num, canvas).then(() => {
+        const cachedCanvas = getCachedPageCanvas(num);
+        const canvas = cachedCanvas || document.createElement('canvas');
+        const renderPromise = cachedCanvas ? Promise.resolve(canvas) : renderPage(num, canvas);
+        renderPromise.then((readyCanvas) => {
             // Double-buffer page turns: the old page stays visible while the
-            // next page is decoded and rasterized off-screen.
+            // next page is decoded and rasterized off-screen. A warmed cache
+            // takes the same atomic path without another PDF.js render.
             if (generation !== renderGeneration) return;
-            viewer.replaceChildren(canvas);
+            pageRenderCache.delete(num);
+            viewer.replaceChildren(readyCanvas);
             container.scrollTop = 0;
             container.scrollLeft = 0;
+            scheduleAdjacentPreload();
         });
         pageNum = num;
         updatePageNumUI();
@@ -449,6 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(FIT_MODE_KEY, 'custom');
         localStorage.setItem(SCALE_KEY, scale);
         updateFitModeUI();
+        clearPageRenderCache();
         renderQueue(pageNum);
     }
 
@@ -461,6 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewMode !== 'one' && pageNum % 2 === 0 && pageNum > 1) {
             pageNum--;
         }
+        clearPageRenderCache();
         renderQueue(pageNum);
     }
 
@@ -547,12 +681,14 @@ document.addEventListener('DOMContentLoaded', () => {
         fitMode = 'width';
         localStorage.setItem(FIT_MODE_KEY, 'width');
         updateFitModeUI();
+        clearPageRenderCache();
         renderQueue(pageNum);
     });
     fitHeightBtn.addEventListener('click', () => {
         fitMode = 'height';
         localStorage.setItem(FIT_MODE_KEY, 'height');
         updateFitModeUI();
+        clearPageRenderCache();
         renderQueue(pageNum);
     });
 
@@ -753,6 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Window Resize
     window.addEventListener('resize', debounce(() => {
+        clearPageRenderCache();
         if (fitMode !== 'custom') {
             renderQueue(pageNum);
         }
@@ -1206,6 +1343,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.__READER_TEST_MODE__) {
         window.__readerTestHooks = {
             setPdfDocument: (doc) => { pdfDoc = doc; },
+            setPageNum: (num) => { pageNum = num; },
+            getCachedPageNumbers: () => Array.from(pageRenderCache.keys()),
+            preloadAdjacentPages,
+            clearPageRenderCache,
             renderOnePage,
             renderTwoPages
         };
