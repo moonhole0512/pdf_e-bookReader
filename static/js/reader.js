@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let scale = !isNaN(savedScale) ? savedScale : 1.5;
     let lastRenderedScale = scale;
     let viewMode = savedViewMode || 'one'; // 'one', 'ltr', 'rtl'
+    let renderGeneration = 0;
 
     // Keep the CSS size tied to the reader layout while rendering the backing
     // canvas at the device's physical pixel density (e.g. 3x on iPhone Pro).
@@ -350,17 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTwoPages(num, direction) {
         closeImageMenu();
-        viewer.innerHTML = '';
+        const generation = ++renderGeneration;
         const canvas1 = document.createElement('canvas');
         const canvas2 = document.createElement('canvas');
-
-        if (direction === 'rtl') {
-            viewer.appendChild(canvas2);
-            viewer.appendChild(canvas1);
-        } else { // 'ltr'
-            viewer.appendChild(canvas1);
-            viewer.appendChild(canvas2);
-        }
 
         const promises = [renderPage(num, canvas1)];
         if (num + 1 <= pdfDoc.numPages) {
@@ -368,6 +361,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         Promise.all(promises).then(() => {
+            // Keep the previous spread visible until both new canvases are
+            // fully rendered, then swap them in atomically. A newer request
+            // wins if the user taps quickly while rendering is in progress.
+            if (generation !== renderGeneration) return;
+            if (direction === 'rtl') {
+                viewer.replaceChildren(canvas2, canvas1);
+            } else { // 'ltr'
+                viewer.replaceChildren(canvas1, canvas2);
+            }
             container.scrollTop = 0;
             container.scrollLeft = 0;
         });
@@ -378,10 +380,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderOnePage(num) {
         closeImageMenu();
-        viewer.innerHTML = '';
+        const generation = ++renderGeneration;
         const canvas = document.createElement('canvas');
-        viewer.appendChild(canvas);
         renderPage(num, canvas).then(() => {
+            // Double-buffer page turns: the old page stays visible while the
+            // next page is decoded and rasterized off-screen.
+            if (generation !== renderGeneration) return;
+            viewer.replaceChildren(canvas);
             container.scrollTop = 0;
             container.scrollLeft = 0;
         });
@@ -1195,6 +1200,16 @@ document.addEventListener('DOMContentLoaded', () => {
         touchStartY = 0;
         isTouchScrolling = false;
     });
+
+    // Expose the render entry points only to the disposable behavioral test
+    // harness; normal browser sessions never set this flag.
+    if (window.__READER_TEST_MODE__) {
+        window.__readerTestHooks = {
+            setPdfDocument: (doc) => { pdfDoc = doc; },
+            renderOnePage,
+            renderTwoPages
+        };
+    }
 
     // --- Initial Load ---
     const loaderOverlay = document.getElementById('loader-overlay');

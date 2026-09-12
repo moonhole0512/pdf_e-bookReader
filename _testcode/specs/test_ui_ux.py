@@ -701,5 +701,17 @@ class TestUIUXEnhancements(unittest.TestCase):
         self.assertIn('transform: outputScale !== 1', js)
         self.assertIn('[outputScale, 0, 0, outputScale, 0, 0]', js)
 
+    def test_reader_page_turn_keeps_previous_canvas_until_rendered(self):
+        """Verify page turns use off-screen rendering and atomic Canvas swaps."""
+        with open('static/js/reader.js', 'r', encoding='utf-8') as f:
+            js = f.read()
+
+        self.assertIn('let renderGeneration = 0;', js)
+        self.assertIn('const generation = ++renderGeneration;', js)
+        self.assertIn('if (generation !== renderGeneration) return;', js)
+        self.assertIn('viewer.replaceChildren(canvas);', js)
+        self.assertIn('viewer.replaceChildren(canvas2, canvas1);', js)
+        self.assertNotIn("viewer.innerHTML = '';", js)
+
 if __name__ == '__main__':
     unittest.main()
