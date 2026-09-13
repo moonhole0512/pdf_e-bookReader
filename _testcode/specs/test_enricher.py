@@ -2,7 +2,7 @@ import os
 import sys
 import unittest
 import tempfile
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -10,7 +10,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app import create_app
 from models import db, User, Book, File
-from services.book_enricher import clean_book_title, is_exact_volume_match, normalize_category, LibraryEnricher
+from services.book_enricher import clean_book_title, is_exact_volume_match, extract_aladin_product_genre, fetch_aladin_metadata, LibraryEnricher
 from services.migration import migrate_database
 
 class TestBookEnricher(unittest.TestCase):
@@ -64,19 +64,23 @@ class TestBookEnricher(unittest.TestCase):
         self.assertTrue(is_exact_volume_match("던전에서 만남을 추구하면 안 되는 걸까 12", 12))
         self.assertFalse(is_exact_volume_match("던전에서 만남을 추구하면 안 되는 걸까 1", 12))
 
-    def test_compact_category_normalization(self):
-        """Provider labels map to the small category set used by the shelf."""
-        self.assertEqual(normalize_category('Comics & Graphic Novels', 'Any'), '만화')
-        self.assertEqual(normalize_category('Literary Criticism', '심리학의 이해'), '심리학')
-        self.assertEqual(normalize_category('Philosophy', 'Any'), '인문·사회')
-        self.assertEqual(normalize_category('Fiction', 'Any'), '소설·문학')
-        self.assertEqual(normalize_category(None, 'Unknown title'), '미분류')
+    def test_aladin_product_genre_is_preserved_without_remapping(self):
+        search_html = '''<div class="ss_book_box" itemId="9204538"><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=9204538" class="bo3">나와 호랑이님 2</a><li>카넬 | 디앤씨미디어 | 2011년</li><div isbn="8926780678"></div></div>'''
+        detail_html = '''<script type="application/ld+json">{"@type":"Book", "genre" : "라이트 노벨"}</script>'''
+        with patch('services.book_enricher.requests.get', side_effect=[
+            Mock(status_code=200, text=search_html), Mock(status_code=200, text=detail_html)
+        ]):
+            metadata = fetch_aladin_metadata('나와 호랑이님', volume=2)
+        self.assertEqual(extract_aladin_product_genre(detail_html), '라이트 노벨')
+        self.assertEqual(metadata['source_category'], '라이트 노벨')
+        self.assertEqual(metadata['category'], '라이트 노벨')
+        self.assertEqual(metadata['product_url'], 'https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=9204538')
 
-    def test_google_fallback_exposes_compact_category_metadata(self):
+    def test_google_fallback_preserves_provider_category_metadata(self):
         from services.books_api import _category_metadata, _isbn_metadata
         self.assertEqual(
             _category_metadata({'title': 'Example', 'categories': ['Comics & Graphic Novels']}),
-            {'source_category': 'Comics & Graphic Novels', 'category': '만화', 'source': 'Google Books'}
+            {'source_category': 'Comics & Graphic Novels', 'category': 'Comics & Graphic Novels', 'source': 'Google Books'}
         )
         self.assertEqual(_isbn_metadata('978-1-234567-89-0'), {'isbn_13': '9781234567890', 'isbn_10': None})
 
@@ -99,7 +103,7 @@ class TestBookEnricher(unittest.TestCase):
         self.assertTrue({'isbn_13', 'source_category', 'category', 'metadata_source'}.issubset(columns))
         self.assertEqual(row, ('기존 책', '기존 저자', None, None, '미분류', None))
 
-    def test_background_enricher_persists_compact_metadata(self):
+    def test_background_enricher_persists_provider_category_metadata(self):
         # Simulates an existing fully enriched book that needs only category backfill.
         book = Book(title='Metadata Test', author='Known Author', cover_url='https://example.test/old-cover.jpg',
                     category='미분류')
@@ -112,14 +116,14 @@ class TestBookEnricher(unittest.TestCase):
         db.session.commit()
         metadata = {
             'title': 'Metadata Test', 'author': 'Author', 'cover_url': 'https://example.test/cover.jpg',
-            'isbn': '9781234567890', 'source_category': 'Psychology', 'category': '심리학',
+            'isbn': '9781234567890', 'source_category': 'Psychology', 'category': 'Psychology',
             'source': 'Google Books'
         }
         with patch('services.book_enricher.enrich_book_info', return_value=metadata):
             LibraryEnricher._run_enrich_thread(self.app, force_all=False)
         updated = db.session.get(Book, book.id)
         self.assertEqual((updated.isbn_13, updated.source_category, updated.category, updated.metadata_source),
-                         ('9781234567890', 'Psychology', '심리학', 'Google Books'))
+                         ('9781234567890', 'Psychology', 'Psychology', 'Google Books'))
 
     def test_background_enricher_marks_unmatched_books_unclassified(self):
         book = Book(title='Unmatched Metadata Test', author='Unknown')

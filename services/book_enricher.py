@@ -1,4 +1,5 @@
 import re
+import json
 import urllib.parse
 import logging
 import requests
@@ -12,22 +13,28 @@ HEADERS = {
 
 CATEGORY_UNCLASSIFIED = "미분류"
 
-def normalize_category(source_category: Optional[str], title: str = '', publisher_info: str = '') -> str:
-    """Map provider labels to a deliberately small, library-friendly category set."""
-    text = ' '.join(filter(None, [source_category, title, publisher_info])).lower()
-    if any(word in text for word in ('만화', 'manga', 'comic', '코믹', '웹툰', '漫画', '漫畵')):
-        return '만화'
-    if any(word in text for word in ('라이트노벨', 'light novel', '라이트 노벨', '노블', 'novel label')):
-        return '라이트노벨'
-    if any(word in text for word in ('심리', 'psychology', 'cognitive science', '인지과학')):
-        return '심리학'
-    if any(word in text for word in ('인문', '철학', '역사', '사회과학', 'sociology', 'humanities', 'philosophy', 'history')):
-        return '인문·사회'
-    if any(word in text for word in ('자기계발', '경제경영', 'business', 'self-help', 'health', '요리', '취미', '실용')):
-        return '자기계발·실용'
-    if any(word in text for word in ('소설', '문학', 'fiction', 'literature', '문고')):
-        return '소설·문학'
-    return CATEGORY_UNCLASSIFIED
+def extract_aladin_product_genre(html: str) -> Optional[str]:
+    """Read Aladin's explicit product-detail genre without inferring from a title."""
+    match = re.search(r'"genre"\s*:\s*"((?:\\.|[^"\\])*)"', html, re.I)
+    if not match:
+        return None
+    try:
+        genre = json.loads(f'"{match.group(1)}"').strip()
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return genre or None
+
+def fetch_aladin_product_genre(product_url: Optional[str]) -> Optional[str]:
+    """Fetch the provider's actual genre for one already-selected Aladin product."""
+    if not product_url:
+        return None
+    try:
+        response = requests.get(product_url, headers=HEADERS, timeout=6)
+        if response.status_code == 200:
+            return extract_aladin_product_genre(response.text)
+    except Exception as exc:
+        logger.debug("Aladin product genre lookup failed for %s: %s", product_url, exc)
+    return None
 
 def clean_book_title(raw_title: str) -> str:
     """
@@ -164,6 +171,11 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
         cand_title = re.sub(r'<[^>]+>', '', t_match.group(1)).strip()
         norm_cand = re.sub(r'[^\w가-힣a-zA-Z0-9\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]+', '', cand_title).lower()
         norm_cand = norm_cand.replace('画', '畵')
+        product_url_match = re.search(
+            r'<a[^>]+href=["\']([^"\']*wproduct\.aspx\?ItemId=\d+[^"\']*)["\'][^>]+class=["\']bo3["\']',
+            box, re.I
+        )
+        product_url = product_url_match.group(1) if product_url_match else None
 
         if not is_isbn_query:
             # Relevance check
@@ -178,7 +190,7 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
             if not is_exact_volume_match(cand_title, target_vol):
                 continue
 
-        # Author and Category info
+        # Author and publisher info. The authoritative genre is on the product detail page.
         author = "알 수 없음"
         publisher_info = ""
         li_matches = re.findall(r'<li>(.*?)</li>', box, re.DOTALL)
@@ -266,7 +278,8 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
             "author": author,
             "publisher": publisher_info,
             "source_category": None,
-            "category": normalize_category(None, cand_title, publisher_info),
+            "category": None,
+            "product_url": product_url,
             "cover_url": cover_url,
             "isbn": isbn,
             "score": score,
@@ -305,6 +318,11 @@ def fetch_aladin_metadata(title: str, volume: Optional[int] = None, author_hint:
                         candidates = parse_aladin_search_results(r.text, clean_t, volume)
                         if candidates:
                             top_cand = candidates[0]
+                            actual_genre = fetch_aladin_product_genre(top_cand.get('product_url'))
+                            if actual_genre:
+                                # Preserve the provider's wording instead of mapping it to an app taxonomy.
+                                top_cand['source_category'] = actual_genre
+                                top_cand['category'] = actual_genre
                             if not top_cand.get('cover_url') or '19book' in top_cand.get('cover_url', '').lower():
                                 bypass = resolve_bypass_cover_url(top_cand.get('isbn'))
                                 if bypass:
@@ -336,7 +354,8 @@ def fetch_google_books_metadata(title: str, volume: Optional[int] = None) -> Opt
                 authors = ", ".join(info.get('authors', [])) or "알 수 없음"
                 identifiers = info.get('industryIdentifiers', [])
                 isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
-                source_category = ', '.join(info.get('categories', [])) or None
+                google_categories = info.get('categories', [])
+                source_category = ', '.join(google_categories) or None
 
                 return {
                     "title": cand_title,
@@ -344,7 +363,7 @@ def fetch_google_books_metadata(title: str, volume: Optional[int] = None) -> Opt
                     "cover_url": thumb,
                     "isbn": isbn,
                     "source_category": source_category,
-                    "category": normalize_category(source_category, cand_title),
+                    "category": google_categories[0] if google_categories else None,
                     "score": 40,
                     "source": "google_books"
                 }
@@ -429,6 +448,7 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                                     "isbn_10": clean_num if (is_isbn and len(clean_num) == 10) else None,
                                     "source_category": c.get('source_category'),
                                     "category": c.get('category'),
+                                    "product_url": c.get('product_url'),
                                     "score": c.get('score', 0),
                                     "source": "Aladin"
                                 })
@@ -463,7 +483,8 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
 
                     identifiers = info.get('industryIdentifiers', [])
                     isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
-                    source_category = ', '.join(info.get('categories', [])) or None
+                    google_categories = info.get('categories', [])
+                    source_category = ', '.join(google_categories) or None
 
                     norm_key = f"{cand_t}_{cand_auth}".lower()
                     if norm_key not in seen_titles:
@@ -475,7 +496,7 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                             "isbn_13": isbn,
                             "isbn_10": None,
                             "source_category": source_category,
-                            "category": normalize_category(source_category, cand_t),
+                            "category": google_categories[0] if google_categories else None,
                             "source": "Google Books"
                         })
         except Exception as e:
@@ -557,7 +578,8 @@ class LibraryEnricher:
                     # A normal enrichment also completes books missing discovery categories.
                     query = query.filter(
                         (Book.cover_url == None) | (Book.author == None) | (Book.author == 'Unknown') |
-                        (Book.category == None) | (Book.category == CATEGORY_UNCLASSIFIED)
+                        (Book.category == None) | (Book.category == CATEGORY_UNCLASSIFIED) |
+                        (Book.source_category == None) | (Book.source_category == '')
                     )
 
                 books_to_process = query.all()
@@ -578,7 +600,8 @@ class LibraryEnricher:
                     metadata_saved = False
 
                     for f in book.files:
-                        if not force_all and f.cover_url and f.author and book.category and book.category != CATEGORY_UNCLASSIFIED:
+                        if not force_all and f.cover_url and f.author and book.category and \
+                                book.category != CATEGORY_UNCLASSIFIED and book.source_category:
                             continue
 
                         meta = enrich_book_info(book.title, volume=f.volume_number, author_hint=known_author)

@@ -60,6 +60,7 @@ def book_lookup():
                 "source_category": c.get('source_category'),
                 "category": c.get('category'),
                 "source": c.get('source'),
+                "product_url": c.get('product_url'),
                 "alt_images": []
             })
     except Exception as e:

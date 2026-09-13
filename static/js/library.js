@@ -109,7 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
             isbn_10: data.isbn_10 || '',
             source_category: data.source_category || '',
             category: data.category || '',
-            metadata_source: data.source || ''
+            metadata_source: data.source || '',
+            product_url: data.product_url || ''
         };
         
         let imagesHtml = '';
@@ -186,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bookCard.dataset.sourceCategory = book.source_category || '';
             bookCard.dataset.category = book.category || '';
             bookCard.dataset.metadataSource = book.source || '';
+            bookCard.dataset.productUrl = book.product_url || '';
 
             const placeholder = `https://placehold.co/150x225/2a2a2a/ffffff?text=No IMG`;
             const cover = book.thumbnail || placeholder;
@@ -229,7 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 isbn_10: selectedCard.dataset.isbn10 || '',
                 source_category: selectedCard.dataset.sourceCategory || '',
                 category: selectedCard.dataset.category || '',
-                metadata_source: selectedCard.dataset.metadataSource || ''
+                metadata_source: selectedCard.dataset.metadataSource || '',
+                product_url: selectedCard.dataset.productUrl || ''
             };
 
             selectedCoverUrl = selectedBookData.cover_url;
@@ -438,7 +441,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     isbn_13: selectedBookData?.isbn_13 || '',
                     source_category: selectedBookData?.source_category || '',
                     category: selectedBookData?.category || '',
-                    metadata_source: selectedBookData?.metadata_source || ''
+                    metadata_source: selectedBookData?.metadata_source || '',
+                    product_url: selectedBookData?.product_url || ''
                 })
             });
 

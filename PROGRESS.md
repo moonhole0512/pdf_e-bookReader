@@ -1,4 +1,5 @@
 ## Done
+- [x] [Implementation] Preserve bookstore provider categories exactly, backfill missing categories through automatic enrichment, and generate library filters from the stored values (independent evaluator PASS).
 - [x] [Implementation] Compact library categories: added portable SQLite metadata fields (`isbn_13`, source category, app category, source), automatic `미분류` fallback, metadata persistence across scanner/enricher/manual ISBN registration, and large-category shelf filtering (independent evaluator PASS).
 - [x] [Implementation] Codebase inspection & structural issue diagnosis
 - [x] [Implementation] Created ARCHITECTURE.md & initial PROGRESS.md

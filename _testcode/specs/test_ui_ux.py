@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import sys
 
@@ -199,7 +200,7 @@ class TestUIUXEnhancements(unittest.TestCase):
             self.assertEqual(reloaded_file.book.cover_url, new_cover)
             self.assertEqual(reloaded_file.book.isbn_13, '9781234567890')
             self.assertEqual(reloaded_file.book.source_category, 'Comics & Graphic Novels')
-            self.assertEqual(reloaded_file.book.category, '만화')
+            self.assertEqual(reloaded_file.book.category, 'Comics & Graphic Novels')
             self.assertEqual(reloaded_file.book.metadata_source, 'Google Books')
         finally:
             # Clean up temporary test data cleanly
@@ -208,12 +209,12 @@ class TestUIUXEnhancements(unittest.TestCase):
             db.session.commit()
 
     def test_category_metadata_and_filter_are_rendered(self):
-        """A compact Book category persists and filters the full shelf server-side."""
+        """A provider category persists and filters the full shelf server-side."""
         user = User.query.filter_by(username="Gruzam").first()
         with self.client.session_transaction() as sess:
             sess['user_id'] = user.id
 
-        test_book = Book(title="Category Filter Test", author="Author", category="심리학",
+        test_book = Book(title="Category Filter Test", author="Author", category="Psychology",
                          source_category="Psychology", isbn_13="9781234567890",
                          metadata_source="Google Books")
         db.session.add(test_book)
@@ -229,13 +230,14 @@ class TestUIUXEnhancements(unittest.TestCase):
         db.session.add(legacy_file)
         db.session.commit()
         try:
-            resp = self.client.get('/?category=심리학')
+            resp = self.client.get('/?category=Psychology')
             self.assertEqual(resp.status_code, 200)
             html = resp.get_data(as_text=True)
             self.assertIn('category-filter', html)
             self.assertIn('Category Filter Test', html)
             self.assertNotIn('Category Exclusion Test', html)
             self.assertIn('book-category-label', html)
+            self.assertIn('Psychology', html)
             unclassified = self.client.get('/?category=미분류').get_data(as_text=True)
             self.assertIn('Legacy Unclassified Test', unclassified)
         finally:
@@ -244,6 +246,38 @@ class TestUIUXEnhancements(unittest.TestCase):
             db.session.delete(other_book)
             db.session.delete(legacy_file)
             db.session.delete(legacy_unclassified)
+            db.session.commit()
+
+    def test_manual_aladin_selection_persists_product_genre(self):
+        """Manual Aladin choice resolves the selected product's actual genre at save time."""
+        user = User.query.filter_by(username="Gruzam").first()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+
+        book = Book(title="Manual Aladin Test", author="Author")
+        db.session.add(book)
+        db.session.commit()
+        file_obj = File(book_id=book.id, file_path="manual_aladin_test.pdf", volume_number=1)
+        db.session.add(file_obj)
+        db.session.commit()
+        try:
+            with patch('services.book_enricher.fetch_aladin_product_genre', return_value='라이트 노벨'):
+                response = self.client.post('/api/file/update', json={
+                    'file_id': file_obj.id,
+                    'title': 'Manual Aladin Test',
+                    'author': 'Author',
+                    'cover_url': 'https://example.test/cover.jpg',
+                    'isbn_13': '9781234567890',
+                    'metadata_source': 'Aladin',
+                    'product_url': 'https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=9204538'
+                })
+            self.assertEqual(response.status_code, 200)
+            updated = db.session.get(Book, book.id)
+            self.assertEqual(updated.source_category, '라이트 노벨')
+            self.assertEqual(updated.category, '라이트 노벨')
+        finally:
+            db.session.delete(file_obj)
+            db.session.delete(book)
             db.session.commit()
 
     def test_pagination_clean_url_and_safe_reload(self):

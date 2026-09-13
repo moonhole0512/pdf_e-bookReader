@@ -11,12 +11,12 @@ HEADERS = {
 }
 
 def _category_metadata(info: Dict[str, Any]) -> Dict[str, Optional[str]]:
-    """Return the same compact category fields as the primary metadata path."""
-    from services.book_enricher import normalize_category
-    source_category = ', '.join(info.get('categories', [])) or None
+    """Preserve Google Books' own category label without app-defined remapping."""
+    categories = info.get('categories', [])
+    source_category = ', '.join(categories) or None
     return {
         'source_category': source_category,
-        'category': normalize_category(source_category, info.get('title', '')),
+        'category': categories[0] if categories else None,
         'source': 'Google Books'
     }
 

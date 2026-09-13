@@ -129,6 +129,12 @@ def update_file_info():
         if file_obj.volume_number == 1 and 'title' in data and data['title']:
             from services.book_enricher import clean_book_title
             file_obj.book.title = clean_book_title(data['title'])
+        if data.get('metadata_source') == 'Aladin' and not data.get('source_category'):
+            from services.book_enricher import fetch_aladin_product_genre
+            actual_genre = fetch_aladin_product_genre(data.get('product_url'))
+            if actual_genre:
+                data['source_category'] = actual_genre
+                data['category'] = actual_genre
         for field in ('isbn_13', 'source_category', 'category', 'metadata_source'):
             if data.get(field):
                 setattr(file_obj.book, field, data[field])
