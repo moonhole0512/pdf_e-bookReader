@@ -39,6 +39,6 @@ e-book_reader/
 ## Data Flow & Invariants
 1. **Portable Paths**: Database stores file paths relative to `PDF_ROOT_PATH` using POSIX separators (`/`). File resolution joins `PDF_ROOT_PATH` + relative path at runtime to ensure NAS & PC portability.
 2. **Reading State**: Reading progress is uniquely keyed by `(user_id, file_id)`, allowing multiple users to read the same file independently.
-3. **Discovery Metadata**: `Book` stores ISBN-13, the provider's original category label, a filter category, and metadata source. Aladin product-detail genres and Google Books category labels are preserved without app-defined mapping; the library builds shelf filters from the actual stored labels. Books with no provider category remain `미분류` so none disappear from discovery.
+3. **Discovery Metadata**: `Book` stores ISBN-13, a provider category path, one filter category, and metadata source. For Aladin, the product page's hierarchical subject classification is retained as the path while its usable middle level becomes the single display/filter category; mixed JSON-LD tag lists are never used. Google Books labels are retained without app-defined mapping. Books with no provider category remain `미분류` so none disappear from discovery.
 4. **Concurrency**: SQLite runs with `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000` to prevent `database is locked` errors during concurrent reads/writes.
 5. **Non-blocking Operations**: Large library scanning runs in a detached background thread with atomic batch commits and status reporting.

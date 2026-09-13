@@ -10,7 +10,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app import create_app
 from models import db, User, Book, File
-from services.book_enricher import clean_book_title, is_exact_volume_match, extract_aladin_product_genre, fetch_aladin_metadata, LibraryEnricher
+from services.book_enricher import (
+    clean_book_title, is_exact_volume_match, extract_aladin_subject_category_path,
+    choose_aladin_primary_category, fetch_aladin_metadata, LibraryEnricher
+)
 from services.migration import migrate_database
 
 class TestBookEnricher(unittest.TestCase):
@@ -64,17 +67,30 @@ class TestBookEnricher(unittest.TestCase):
         self.assertTrue(is_exact_volume_match("던전에서 만남을 추구하면 안 되는 걸까 12", 12))
         self.assertFalse(is_exact_volume_match("던전에서 만남을 추구하면 안 되는 걸까 1", 12))
 
-    def test_aladin_product_genre_is_preserved_without_remapping(self):
+    def test_aladin_subject_path_selects_one_primary_category(self):
         search_html = '''<div class="ss_book_box" itemId="9204538"><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=9204538" class="bo3">나와 호랑이님 2</a><li>카넬 | 디앤씨미디어 | 2011년</li><div isbn="8926780678"></div></div>'''
-        detail_html = '''<script type="application/ld+json">{"@type":"Book", "genre" : "라이트 노벨"}</script>'''
+        detail_html = '''
+            <script type="application/ld+json">{"@type":"Book", "genre" : "라이트 노벨, 세계의 문학"}</script>
+            <ul id="ulCategory"><li><a>국내도서</a> &gt; <a>만화/라이트노벨</a> &gt; <a>라이트 노벨</a> &gt; <a><b>시드(Seed) 노벨</b></a></li></ul>
+        '''
         with patch('services.book_enricher.requests.get', side_effect=[
             Mock(status_code=200, text=search_html), Mock(status_code=200, text=detail_html)
         ]):
             metadata = fetch_aladin_metadata('나와 호랑이님', volume=2)
-        self.assertEqual(extract_aladin_product_genre(detail_html), '라이트 노벨')
-        self.assertEqual(metadata['source_category'], '라이트 노벨')
+        path = extract_aladin_subject_category_path(detail_html)
+        self.assertEqual(path, ['국내도서', '만화/라이트노벨', '라이트 노벨', '시드(Seed) 노벨'])
+        self.assertEqual(choose_aladin_primary_category(path), '라이트 노벨')
+        self.assertEqual(metadata['source_category'], '국내도서 > 만화/라이트노벨 > 라이트 노벨 > 시드(Seed) 노벨')
         self.assertEqual(metadata['category'], '라이트 노벨')
         self.assertEqual(metadata['product_url'], 'https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=9204538')
+
+    def test_aladin_subject_path_ignores_mixed_tag_style_values(self):
+        detail_html = '''
+            <script type="application/ld+json">{"genre": "일본소설, 세계의 문학, 테마문학, 해외 문학상"}</script>
+            <ul id="ulCategory"><li><a>국내도서</a> &gt; <a>소설/시/희곡</a> &gt; <a>일본소설</a> &gt; <a><b>일본소설 일반</b></a></li></ul>
+        '''
+        path = extract_aladin_subject_category_path(detail_html)
+        self.assertEqual(choose_aladin_primary_category(path), '일본소설')
 
     def test_google_fallback_preserves_provider_category_metadata(self):
         from services.books_api import _category_metadata, _isbn_metadata
@@ -124,6 +140,30 @@ class TestBookEnricher(unittest.TestCase):
         updated = db.session.get(Book, book.id)
         self.assertEqual((updated.isbn_13, updated.source_category, updated.category, updated.metadata_source),
                          ('9781234567890', 'Psychology', 'Psychology', 'Google Books'))
+
+    def test_background_enricher_repairs_mixed_aladin_tags(self):
+        book = Book(title='Mixed Aladin Tags', author='Known Author',
+                    cover_url='https://example.test/old-cover.jpg',
+                    source_category='일본소설, 세계의 문학, 테마문학, 해외 문학상',
+                    category='일본소설, 세계의 문학, 테마문학, 해외 문학상',
+                    metadata_source='Aladin')
+        db.session.add(book)
+        db.session.commit()
+        file_obj = File(book_id=book.id, file_path='mixed_aladin_tags.pdf', volume_number=1,
+                        author='Known Author', cover_url='https://example.test/old-cover.jpg')
+        db.session.add(file_obj)
+        db.session.commit()
+        metadata = {
+            'title': 'Mixed Aladin Tags', 'author': 'Known Author',
+            'source_category': '국내도서 > 소설/시/희곡 > 일본소설 > 일본소설 일반',
+            'category': '일본소설', 'source': 'aladin'
+        }
+        with patch('services.book_enricher.enrich_book_info', return_value=metadata) as enrich:
+            LibraryEnricher._run_enrich_thread(self.app, force_all=False)
+        self.assertTrue(enrich.called)
+        updated = db.session.get(Book, book.id)
+        self.assertEqual(updated.category, '일본소설')
+        self.assertEqual(updated.source_category, metadata['source_category'])
 
     def test_background_enricher_marks_unmatched_books_unclassified(self):
         book = Book(title='Unmatched Metadata Test', author='Unknown')

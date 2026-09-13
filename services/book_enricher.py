@@ -1,8 +1,8 @@
 import re
-import json
 import urllib.parse
 import logging
 import requests
+from html import unescape
 from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
@@ -13,28 +13,45 @@ HEADERS = {
 
 CATEGORY_UNCLASSIFIED = "미분류"
 
-def extract_aladin_product_genre(html: str) -> Optional[str]:
-    """Read Aladin's explicit product-detail genre without inferring from a title."""
-    match = re.search(r'"genre"\s*:\s*"((?:\\.|[^"\\])*)"', html, re.I)
-    if not match:
-        return None
-    try:
-        genre = json.loads(f'"{match.group(1)}"').strip()
-    except (json.JSONDecodeError, TypeError):
-        return None
-    return genre or None
+def extract_aladin_subject_category_path(html: str) -> List[str]:
+    """Extract Aladin's hierarchical subject path, not its mixed JSON-LD tag list."""
+    category_list = re.search(
+        r'<ul[^>]+id=["\']ulCategory["\'][^>]*>(.*?)</ul>', html, re.I | re.S
+    )
+    if not category_list:
+        return []
 
-def fetch_aladin_product_genre(product_url: Optional[str]) -> Optional[str]:
-    """Fetch the provider's actual genre for one already-selected Aladin product."""
-    if not product_url:
+    path = []
+    for label in re.findall(r'<a\b[^>]*>(.*?)</a>', category_list.group(1), re.I | re.S):
+        label = unescape(re.sub(r'<[^>]+>', '', label)).strip()
+        if label and label not in ('접기', '펼치기') and label not in path:
+            path.append(label)
+    return path
+
+def choose_aladin_primary_category(path: List[str]) -> Optional[str]:
+    """Choose the usable genre level and discard store root plus collection/imprint leaf."""
+    levels = [label for label in path if label not in ('국내도서', '외국도서', '전자책', 'eBook')]
+    if not levels:
         return None
+    # Aladin paths are usually: broad shelf > genre > collection/imprint.
+    # The second level retains useful distinctions (e.g. 라이트 노벨, 일본소설, 심리학).
+    return levels[1] if len(levels) >= 2 else levels[0]
+
+def fetch_aladin_product_categories(product_url: Optional[str]) -> Dict[str, Optional[str]]:
+    """Fetch a stable primary category and the provider's complete subject path."""
+    if not product_url:
+        return {'source_category': None, 'category': None}
     try:
         response = requests.get(product_url, headers=HEADERS, timeout=6)
         if response.status_code == 200:
-            return extract_aladin_product_genre(response.text)
+            path = extract_aladin_subject_category_path(response.text)
+            return {
+                'source_category': ' > '.join(path) or None,
+                'category': choose_aladin_primary_category(path)
+            }
     except Exception as exc:
-        logger.debug("Aladin product genre lookup failed for %s: %s", product_url, exc)
-    return None
+        logger.debug("Aladin subject classification lookup failed for %s: %s", product_url, exc)
+    return {'source_category': None, 'category': None}
 
 def clean_book_title(raw_title: str) -> str:
     """
@@ -318,11 +335,9 @@ def fetch_aladin_metadata(title: str, volume: Optional[int] = None, author_hint:
                         candidates = parse_aladin_search_results(r.text, clean_t, volume)
                         if candidates:
                             top_cand = candidates[0]
-                            actual_genre = fetch_aladin_product_genre(top_cand.get('product_url'))
-                            if actual_genre:
-                                # Preserve the provider's wording instead of mapping it to an app taxonomy.
-                                top_cand['source_category'] = actual_genre
-                                top_cand['category'] = actual_genre
+                            categories = fetch_aladin_product_categories(top_cand.get('product_url'))
+                            if categories.get('category'):
+                                top_cand.update(categories)
                             if not top_cand.get('cover_url') or '19book' in top_cand.get('cover_url', '').lower():
                                 bypass = resolve_bypass_cover_url(top_cand.get('isbn'))
                                 if bypass:
@@ -575,11 +590,12 @@ class LibraryEnricher:
             try:
                 query = Book.query
                 if not force_all:
-                    # A normal enrichment also completes books missing discovery categories.
+                    # A normal enrichment also repairs old mixed JSON-LD tag values.
                     query = query.filter(
                         (Book.cover_url == None) | (Book.author == None) | (Book.author == 'Unknown') |
                         (Book.category == None) | (Book.category == CATEGORY_UNCLASSIFIED) |
-                        (Book.source_category == None) | (Book.source_category == '')
+                        (Book.source_category == None) | (Book.source_category == '') |
+                        (Book.metadata_source.ilike('aladin') & Book.source_category.contains(','))
                     )
 
                 books_to_process = query.all()
@@ -598,10 +614,15 @@ class LibraryEnricher:
                     known_author = book.author if book.author not in (None, 'Unknown') else None
                     first_cover = book.cover_url
                     metadata_saved = False
+                    needs_aladin_category_repair = (
+                        (book.metadata_source or '').lower() == 'aladin' and
+                        ',' in (book.source_category or '')
+                    )
 
                     for f in book.files:
                         if not force_all and f.cover_url and f.author and book.category and \
-                                book.category != CATEGORY_UNCLASSIFIED and book.source_category:
+                                book.category != CATEGORY_UNCLASSIFIED and book.source_category and \
+                                not needs_aladin_category_repair:
                             continue
 
                         meta = enrich_book_info(book.title, volume=f.volume_number, author_hint=known_author)

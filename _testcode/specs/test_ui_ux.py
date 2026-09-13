@@ -248,8 +248,8 @@ class TestUIUXEnhancements(unittest.TestCase):
             db.session.delete(legacy_unclassified)
             db.session.commit()
 
-    def test_manual_aladin_selection_persists_product_genre(self):
-        """Manual Aladin choice resolves the selected product's actual genre at save time."""
+    def test_manual_aladin_selection_persists_subject_category(self):
+        """Manual Aladin choice resolves the selected product's subject category at save time."""
         user = User.query.filter_by(username="Gruzam").first()
         with self.client.session_transaction() as sess:
             sess['user_id'] = user.id
@@ -261,7 +261,10 @@ class TestUIUXEnhancements(unittest.TestCase):
         db.session.add(file_obj)
         db.session.commit()
         try:
-            with patch('services.book_enricher.fetch_aladin_product_genre', return_value='라이트 노벨'):
+            with patch('services.book_enricher.fetch_aladin_product_categories', return_value={
+                'source_category': '국내도서 > 만화/라이트노벨 > 라이트 노벨 > 시드(Seed) 노벨',
+                'category': '라이트 노벨'
+            }):
                 response = self.client.post('/api/file/update', json={
                     'file_id': file_obj.id,
                     'title': 'Manual Aladin Test',
@@ -273,7 +276,7 @@ class TestUIUXEnhancements(unittest.TestCase):
                 })
             self.assertEqual(response.status_code, 200)
             updated = db.session.get(Book, book.id)
-            self.assertEqual(updated.source_category, '라이트 노벨')
+            self.assertEqual(updated.source_category, '국내도서 > 만화/라이트노벨 > 라이트 노벨 > 시드(Seed) 노벨')
             self.assertEqual(updated.category, '라이트 노벨')
         finally:
             db.session.delete(file_obj)

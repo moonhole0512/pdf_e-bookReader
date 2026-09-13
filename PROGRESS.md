@@ -1,4 +1,5 @@
 ## Done
+- [x] [Debugging] Replaced mixed Aladin JSON-LD genre tags with one primary genre from the product subject-classification hierarchy; retained the full path, repaired comma-separated legacy tags through automatic enrichment, and verified with an independent evaluator PASS.
 - [x] [Implementation] Preserve bookstore provider categories exactly, backfill missing categories through automatic enrichment, and generate library filters from the stored values (independent evaluator PASS).
 - [x] [Implementation] Compact library categories: added portable SQLite metadata fields (`isbn_13`, source category, app category, source), automatic `미분류` fallback, metadata persistence across scanner/enricher/manual ISBN registration, and large-category shelf filtering (independent evaluator PASS).
 - [x] [Implementation] Codebase inspection & structural issue diagnosis
