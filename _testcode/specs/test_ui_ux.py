@@ -178,7 +178,11 @@ class TestUIUXEnhancements(unittest.TestCase):
                 'file_id': test_file.id,
                 'title': new_title,
                 'author': new_author,
-                'cover_url': new_cover
+                'cover_url': new_cover,
+                'isbn_13': '9781234567890',
+                'source_category': 'Comics & Graphic Novels',
+                'category': '만화',
+                'metadata_source': 'Google Books'
             })
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
@@ -193,10 +197,53 @@ class TestUIUXEnhancements(unittest.TestCase):
             self.assertEqual(reloaded_file.cover_url, new_cover)
             self.assertIsNotNone(reloaded_file.book)
             self.assertEqual(reloaded_file.book.cover_url, new_cover)
+            self.assertEqual(reloaded_file.book.isbn_13, '9781234567890')
+            self.assertEqual(reloaded_file.book.source_category, 'Comics & Graphic Novels')
+            self.assertEqual(reloaded_file.book.category, '만화')
+            self.assertEqual(reloaded_file.book.metadata_source, 'Google Books')
         finally:
             # Clean up temporary test data cleanly
             db.session.delete(test_file)
             db.session.delete(test_book)
+            db.session.commit()
+
+    def test_category_metadata_and_filter_are_rendered(self):
+        """A compact Book category persists and filters the full shelf server-side."""
+        user = User.query.filter_by(username="Gruzam").first()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+
+        test_book = Book(title="Category Filter Test", author="Author", category="심리학",
+                         source_category="Psychology", isbn_13="9781234567890",
+                         metadata_source="Google Books")
+        db.session.add(test_book)
+        db.session.commit()
+        test_file = File(book_id=test_book.id, file_path="category_filter_test.pdf", volume_number=1)
+        other_book = Book(title="Category Exclusion Test", author="Author", category="만화")
+        legacy_unclassified = Book(title="Legacy Unclassified Test", author="Author", category=None)
+        db.session.add(test_file)
+        db.session.add(other_book)
+        db.session.add(legacy_unclassified)
+        db.session.commit()
+        legacy_file = File(book_id=legacy_unclassified.id, file_path="legacy_unclassified_test.pdf", volume_number=1)
+        db.session.add(legacy_file)
+        db.session.commit()
+        try:
+            resp = self.client.get('/?category=심리학')
+            self.assertEqual(resp.status_code, 200)
+            html = resp.get_data(as_text=True)
+            self.assertIn('category-filter', html)
+            self.assertIn('Category Filter Test', html)
+            self.assertNotIn('Category Exclusion Test', html)
+            self.assertIn('book-category-label', html)
+            unclassified = self.client.get('/?category=미분류').get_data(as_text=True)
+            self.assertIn('Legacy Unclassified Test', unclassified)
+        finally:
+            db.session.delete(test_file)
+            db.session.delete(test_book)
+            db.session.delete(other_book)
+            db.session.delete(legacy_file)
+            db.session.delete(legacy_unclassified)
             db.session.commit()
 
     def test_pagination_clean_url_and_safe_reload(self):

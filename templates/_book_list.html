@@ -4,6 +4,7 @@
         <div class="book-card" 
              data-is-group="true" 
              data-status="{{ group.status }}"
+             data-category="{{ group.book.category or '미분류' }}"
              data-volume-count="{{ group.volume_count }}" 
              data-single-url="{{ url_for('reader.reader_view', file_id=target_file_id) }}"
              data-target-url="{{ url_for('reader.reader_view', file_id=target_file_id) }}"
@@ -35,7 +36,8 @@
             </div>
 
             <div class="book-info">
-                <h3>{{ group.book.title }}</h3>
+            <h3>{{ group.book.title }}</h3>
+            {% if group.book.category %}<span class="book-category-label">{{ group.book.category }}</span>{% endif %}
                 <p>{{ group.cover_file.author or group.book.author }}</p>
             </div>
         </div>
@@ -46,13 +48,13 @@
     <ul class="pagination">
         {# Prev Page Link #}
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('library.index', page=pagination.prev_num, search_query=search_query) if pagination.has_prev else '#' }}">&laquo;</a>
+            <a class="page-link" href="{{ url_for('library.index', page=pagination.prev_num, search_query=search_query, category=active_category) if pagination.has_prev else '#' }}">&laquo;</a>
         </li>
         {# Page Numbers #}
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('library.index', page=page_num, search_query=search_query) }}">{{ page_num }}</a>
+                    <a class="page-link" href="{{ url_for('library.index', page=page_num, search_query=search_query, category=active_category) }}">{{ page_num }}</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -60,7 +62,7 @@
         {% endfor %}
         {# Next Page Link #}
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('library.index', page=pagination.next_num, search_query=search_query) if pagination.has_next else '#' }}">&raquo;</a>
+            <a class="page-link" href="{{ url_for('library.index', page=pagination.next_num, search_query=search_query, category=active_category) if pagination.has_next else '#' }}">&raquo;</a>
         </li>
     </ul>
 </nav>

@@ -129,7 +129,7 @@ class LibraryScanner:
                     # Find or create Book
                     book = Book.query.filter_by(title=title).first()
                     if not book:
-                        book = Book(title=title, author="Unknown")
+                        book = Book(title=title, author="Unknown", category="미분류")
                         db.session.add(book)
                         db.session.flush()
 
@@ -148,6 +148,10 @@ class LibraryScanner:
                                     file_author = meta['author']
                                 if not book.cover_url and meta.get('cover_url'):
                                     book.cover_url = meta['cover_url']
+                                book.isbn_13 = meta.get('isbn') or book.isbn_13
+                                book.source_category = meta.get('source_category') or book.source_category
+                                book.category = meta.get('category') or book.category
+                                book.metadata_source = meta.get('source') or book.metadata_source
                                 file_cover = meta.get('cover_url')
                                 display_title = meta.get('title') or stem
                         except Exception as enrich_err:
@@ -163,6 +167,8 @@ class LibraryScanner:
                         cover_url=file_cover
                     )
                     db.session.add(new_file)
+                    if not book.category:
+                        book.category = "미분류"
                     existing_paths[rel_path] = True
                     added_count += 1
 

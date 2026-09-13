@@ -13,6 +13,7 @@ def migrate_database(db_path: str, pdf_root_path: str):
     2. Migrates reading_state table constraint to composite (user_id, file_id)
     3. Normalizes existing absolute file paths to POSIX relative paths
     4. Ensures user table has is_admin column and grants admin to existing users
+    5. Adds compact book discovery metadata columns on existing libraries
     """
     if not os.path.exists(db_path):
         return
@@ -42,6 +43,25 @@ def migrate_database(db_path: str, pdf_root_path: str):
             # If there's an existing user, make them admin
             cursor.execute("UPDATE user SET is_admin = 1 WHERE id = 1")
             conn.commit()
+
+        # --- 1b. Book metadata migration ---
+        # Additive SQLite changes preserve every existing book and reading state.
+        cursor.execute("PRAGMA table_info(book)")
+        book_columns = [row[1] for row in cursor.fetchall()]
+        for name, column_type in (
+            ('isbn_13', 'VARCHAR(13)'),
+            ('source_category', 'VARCHAR(255)'),
+            ('category', 'VARCHAR(50)'),
+            ('metadata_source', 'VARCHAR(50)'),
+        ):
+            if name not in book_columns:
+                logger.info("Adding '%s' column to book table.", name)
+                cursor.execute(f"ALTER TABLE book ADD COLUMN {name} {column_type}")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_category ON book (category)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_isbn_13 ON book (isbn_13)")
+        # Every book must remain discoverable even if a provider has no matching record.
+        cursor.execute("UPDATE book SET category = '미분류' WHERE category IS NULL OR TRIM(category) = ''")
+        conn.commit()
 
         # --- 2. ReadingState table migration ---
         # Check if reading_state has unique(file_id) constraint

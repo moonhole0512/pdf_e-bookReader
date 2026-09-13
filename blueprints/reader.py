@@ -129,6 +129,9 @@ def update_file_info():
         if file_obj.volume_number == 1 and 'title' in data and data['title']:
             from services.book_enricher import clean_book_title
             file_obj.book.title = clean_book_title(data['title'])
+        for field in ('isbn_13', 'source_category', 'category', 'metadata_source'):
+            if data.get(field):
+                setattr(file_obj.book, field, data[field])
 
     db.session.commit()
     return jsonify({

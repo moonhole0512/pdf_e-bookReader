@@ -36,6 +36,11 @@ class Book(db.Model):
     author = Column(String(255), nullable=True)
     total_volumes = Column(Integer, default=1)
     cover_url = Column(String(500), nullable=True)
+    # Compact metadata for discovery; provider payloads are intentionally not stored wholesale.
+    isbn_13 = Column(String(13), nullable=True, index=True)
+    source_category = Column(String(255), nullable=True)
+    category = Column(String(50), nullable=True, index=True)
+    metadata_source = Column(String(50), nullable=True)
     
     files = relationship('File', back_populates='book', cascade="all, delete-orphan", order_by="File.volume_number")
 

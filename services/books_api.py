@@ -10,6 +10,24 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
+def _category_metadata(info: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    """Return the same compact category fields as the primary metadata path."""
+    from services.book_enricher import normalize_category
+    source_category = ', '.join(info.get('categories', [])) or None
+    return {
+        'source_category': source_category,
+        'category': normalize_category(source_category, info.get('title', '')),
+        'source': 'Google Books'
+    }
+
+def _isbn_metadata(isbn: str) -> Dict[str, Optional[str]]:
+    """Keep an ISBN lookup's identifier even when Google omits industryIdentifiers."""
+    normalized = re.sub(r'[-\s]', '', isbn or '')
+    return {
+        'isbn_13': normalized if len(normalized) == 13 else None,
+        'isbn_10': normalized if len(normalized) == 10 else None,
+    }
+
 def lookup_google_books_by_title_volume(title: str, volume: Optional[str] = None) -> Dict[str, Any]:
     """Queries Google Books API by book title and optional volume number, supporting multilingual books."""
     if not title:
@@ -47,7 +65,8 @@ def lookup_google_books_by_title_volume(title: str, volume: Optional[str] = None
                 "author": ", ".join(info.get('authors', [])),
                 "thumbnail": info.get('imageLinks', {}).get('thumbnail'),
                 "isbn_13": isbn_13,
-                "isbn_10": isbn_10
+                "isbn_10": isbn_10,
+                **_category_metadata(info)
             })
 
         return {"results": results, "status": 200}
@@ -86,7 +105,9 @@ def lookup_google_books_by_isbn(isbn: str) -> Dict[str, Any]:
             "title": info.get('title'),
             "author": ", ".join(info.get('authors', [])),
             "thumbnail": info.get('imageLinks', {}).get('thumbnail'),
-            "alt_images": []
+            "alt_images": [],
+            **_isbn_metadata(isbn),
+            **_category_metadata(info)
         }
         return {"result": result, "status": 200}
     except requests.exceptions.Timeout:

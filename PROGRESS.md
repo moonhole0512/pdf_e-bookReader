@@ -1,4 +1,5 @@
 ## Done
+- [x] [Implementation] Compact library categories: added portable SQLite metadata fields (`isbn_13`, source category, app category, source), automatic `미분류` fallback, metadata persistence across scanner/enricher/manual ISBN registration, and large-category shelf filtering (independent evaluator PASS).
 - [x] [Implementation] Codebase inspection & structural issue diagnosis
 - [x] [Implementation] Created ARCHITECTURE.md & initial PROGRESS.md
 - [x] [Implementation] Step 1: Database models & SQLite WAL/timeout concurrency enhancement
@@ -59,6 +60,7 @@
 ## Next
 
 ## Notes
+- Category verification: 8 focused tests passed (migration, Google fallback, scanner, enricher, manual registration, and inclusive/exclusive category filtering); independent evaluator PASS. Full suite retains 4 pre-existing failures: one stale live reading-page expectation and three external metadata/CDN network-dependent tests.
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.

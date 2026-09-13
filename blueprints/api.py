@@ -57,6 +57,9 @@ def book_lookup():
                 "thumbnail": c.get('thumbnail'),
                 "isbn_13": c.get('isbn_13'),
                 "isbn_10": c.get('isbn_10'),
+                "source_category": c.get('source_category'),
+                "category": c.get('category'),
+                "source": c.get('source'),
                 "alt_images": []
             })
     except Exception as e:

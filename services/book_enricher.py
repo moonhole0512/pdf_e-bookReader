@@ -10,6 +10,25 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
+CATEGORY_UNCLASSIFIED = "미분류"
+
+def normalize_category(source_category: Optional[str], title: str = '', publisher_info: str = '') -> str:
+    """Map provider labels to a deliberately small, library-friendly category set."""
+    text = ' '.join(filter(None, [source_category, title, publisher_info])).lower()
+    if any(word in text for word in ('만화', 'manga', 'comic', '코믹', '웹툰', '漫画', '漫畵')):
+        return '만화'
+    if any(word in text for word in ('라이트노벨', 'light novel', '라이트 노벨', '노블', 'novel label')):
+        return '라이트노벨'
+    if any(word in text for word in ('심리', 'psychology', 'cognitive science', '인지과학')):
+        return '심리학'
+    if any(word in text for word in ('인문', '철학', '역사', '사회과학', 'sociology', 'humanities', 'philosophy', 'history')):
+        return '인문·사회'
+    if any(word in text for word in ('자기계발', '경제경영', 'business', 'self-help', 'health', '요리', '취미', '실용')):
+        return '자기계발·실용'
+    if any(word in text for word in ('소설', '문학', 'fiction', 'literature', '문고')):
+        return '소설·문학'
+    return CATEGORY_UNCLASSIFIED
+
 def clean_book_title(raw_title: str) -> str:
     """
     Removes volume numbers, file extension, brackets, publisher labels, and trailing noise from title for searching.
@@ -246,6 +265,8 @@ def parse_aladin_search_results(html: str, clean_title: str, target_vol: Optiona
             "title": cand_title,
             "author": author,
             "publisher": publisher_info,
+            "source_category": None,
+            "category": normalize_category(None, cand_title, publisher_info),
             "cover_url": cover_url,
             "isbn": isbn,
             "score": score,
@@ -315,12 +336,15 @@ def fetch_google_books_metadata(title: str, volume: Optional[int] = None) -> Opt
                 authors = ", ".join(info.get('authors', [])) or "알 수 없음"
                 identifiers = info.get('industryIdentifiers', [])
                 isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
+                source_category = ', '.join(info.get('categories', [])) or None
 
                 return {
                     "title": cand_title,
                     "author": authors,
                     "cover_url": thumb,
                     "isbn": isbn,
+                    "source_category": source_category,
+                    "category": normalize_category(source_category, cand_title),
                     "score": 40,
                     "source": "google_books"
                 }
@@ -403,6 +427,8 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                                     "thumbnail": c.get('cover_url'),
                                     "isbn_13": clean_num if (is_isbn and len(clean_num) == 13) else c.get('isbn'),
                                     "isbn_10": clean_num if (is_isbn and len(clean_num) == 10) else None,
+                                    "source_category": c.get('source_category'),
+                                    "category": c.get('category'),
                                     "score": c.get('score', 0),
                                     "source": "Aladin"
                                 })
@@ -437,6 +463,7 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
 
                     identifiers = info.get('industryIdentifiers', [])
                     isbn = next((i['identifier'] for i in identifiers if 'ISBN' in i.get('type', '')), None)
+                    source_category = ', '.join(info.get('categories', [])) or None
 
                     norm_key = f"{cand_t}_{cand_auth}".lower()
                     if norm_key not in seen_titles:
@@ -447,6 +474,8 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                             "thumbnail": thumb,
                             "isbn_13": isbn,
                             "isbn_10": None,
+                            "source_category": source_category,
+                            "category": normalize_category(source_category, cand_t),
                             "source": "Google Books"
                         })
         except Exception as e:
@@ -525,8 +554,8 @@ class LibraryEnricher:
             try:
                 query = Book.query
                 if not force_all:
-                    # Target books missing cover or author
-                    query = query.filter((Book.cover_url == None) | (Book.author == None) | (Book.author == 'Unknown'))
+                    # A normal enrichment also completes books missing discovery categories.
+                    query = query.filter((Book.cover_url == None) | (Book.author == None) | (Book.author == 'Unknown') | (Book.category == None))
 
                 books_to_process = query.all()
                 total = len(books_to_process)
@@ -543,9 +572,10 @@ class LibraryEnricher:
 
                     known_author = book.author if book.author not in (None, 'Unknown') else None
                     first_cover = book.cover_url
+                    metadata_saved = False
 
                     for f in book.files:
-                        if not force_all and f.cover_url and f.author:
+                        if not force_all and f.cover_url and f.author and book.category:
                             continue
 
                         meta = enrich_book_info(book.title, volume=f.volume_number, author_hint=known_author)
@@ -554,6 +584,12 @@ class LibraryEnricher:
                                 known_author = meta['author']
                             if not first_cover and meta.get('cover_url'):
                                 first_cover = meta['cover_url']
+                            if not metadata_saved:
+                                book.isbn_13 = meta.get('isbn') or book.isbn_13
+                                book.source_category = meta.get('source_category') or book.source_category
+                                book.category = meta.get('category') or book.category or CATEGORY_UNCLASSIFIED
+                                book.metadata_source = meta.get('source') or book.metadata_source
+                                metadata_saved = True
 
                             f.title = meta.get('title') or f.title
                             f.author = meta.get('author') or f.author
@@ -565,6 +601,10 @@ class LibraryEnricher:
                                 cls._status["updated_files"] = updated_files_count
 
                         time.sleep(0.1) # Courteous rate limit
+
+                    if not book.category:
+                        # Keep unmatched books selectable in the shelf instead of silently omitting them.
+                        book.category = CATEGORY_UNCLASSIFIED
 
                     if known_author:
                         book.author = known_author
@@ -587,4 +627,3 @@ class LibraryEnricher:
                     cls._is_running = False
                     cls._status["state"] = "error"
                     cls._status["message"] = f"오류 발생: {str(e)}"
-

@@ -39,5 +39,6 @@ e-book_reader/
 ## Data Flow & Invariants
 1. **Portable Paths**: Database stores file paths relative to `PDF_ROOT_PATH` using POSIX separators (`/`). File resolution joins `PDF_ROOT_PATH` + relative path at runtime to ensure NAS & PC portability.
 2. **Reading State**: Reading progress is uniquely keyed by `(user_id, file_id)`, allowing multiple users to read the same file independently.
-3. **Concurrency**: SQLite runs with `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000` to prevent `database is locked` errors during concurrent reads/writes.
-4. **Non-blocking Operations**: Large library scanning runs in a detached background thread with atomic batch commits and status reporting.
+3. **Compact Discovery Metadata**: `Book` stores ISBN-13, source category, normalized large category, and metadata source. The library maps provider labels into a small set of shelf filters and marks unmatched books `미분류` so none disappear from discovery.
+4. **Concurrency**: SQLite runs with `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000` to prevent `database is locked` errors during concurrent reads/writes.
+5. **Non-blocking Operations**: Large library scanning runs in a detached background thread with atomic batch commits and status reporting.

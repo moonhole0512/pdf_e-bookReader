@@ -2622,6 +2622,7 @@ header nav a:hover {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    text-decoration: none;
 }
 
 .chip-svg-icon {
@@ -2640,6 +2641,14 @@ header nav a:hover {
     color: #ffffff;
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(10, 132, 255, 0.35);
+}
+
+.book-category-label {
+    display: inline-block;
+    margin-top: 5px;
+    color: #8c93a4;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 .header-right {

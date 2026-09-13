@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, g, jsonify, redirect, url_for
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 from models import db, Book, File, ReadingState
 from blueprints.auth import login_required
@@ -83,10 +83,16 @@ def index():
     # 4. 모든 책 목록 (검색 및 페이징)
     page = request.args.get('page', 1, type=int)
     search_query = request.args.get('search_query', '').strip()
+    category = request.args.get('category', '').strip()
 
     all_books_query = Book.query.order_by(Book.title)
     if search_query:
         all_books_query = all_books_query.filter(Book.title.ilike(f'%{search_query}%'))
+    if category:
+        category_filter = Book.category == category
+        if category == '미분류':
+            category_filter = or_(category_filter, Book.category.is_(None), Book.category == '')
+        all_books_query = all_books_query.filter(category_filter)
 
     pagination = all_books_query.paginate(page=page, per_page=10, error_out=False)
     paginated_book_ids = [b.id for b in pagination.items]
@@ -99,6 +105,8 @@ def index():
 
     total_books = pagination.total
     total_files = db.session.query(func.count(File.id)).scalar() or 0
+    category_counts = dict(db.session.query(func.coalesce(Book.category, '미분류'), func.count(Book.id))
+                           .group_by(func.coalesce(Book.category, '미분류')).all())
 
     last_file = recent_lounge_items[0]['file'] if recent_lounge_items else None
     next_volume_file = recent_lounge_items[0]['next_volume_file'] if recent_lounge_items else None
@@ -115,6 +123,8 @@ def index():
         all_groups=all_groups,
         pagination=pagination,
         search_query=search_query,
+        active_category=category,
+        category_counts=category_counts,
         total_books=total_books,
         total_files=total_files
     )
@@ -124,6 +134,7 @@ def index():
 def get_books():
     page = request.args.get('page', 1, type=int)
     search_query = request.args.get('search_query', '').strip()
+    category = request.args.get('category', '').strip()
 
     # Guard: If user visits /api/books directly in browser address bar, redirect to the full index view
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
@@ -135,6 +146,11 @@ def get_books():
     all_books_query = Book.query.order_by(Book.title)
     if search_query:
         all_books_query = all_books_query.filter(Book.title.ilike(f'%{search_query}%'))
+    if category:
+        category_filter = Book.category == category
+        if category == '미분류':
+            category_filter = or_(category_filter, Book.category.is_(None), Book.category == '')
+        all_books_query = all_books_query.filter(category_filter)
 
     pagination = all_books_query.paginate(page=page, per_page=10, error_out=False)
     paginated_book_ids = [item.id for item in pagination.items]
@@ -145,7 +161,7 @@ def get_books():
             .filter(File.book_id.in_(paginated_book_ids)).all()
         all_groups = group_files_by_book(all_files, g.user.id)
 
-    return render_template('_book_list.html', all_groups=all_groups, pagination=pagination, search_query=search_query)
+    return render_template('_book_list.html', all_groups=all_groups, pagination=pagination, search_query=search_query, active_category=category)
 
 @library_bp.route('/api/books/autocomplete')
 def autocomplete_books():

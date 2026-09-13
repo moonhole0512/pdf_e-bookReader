@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeVolumeModalBtn = document.getElementById('volume-modal-close-btn');
 
     let selectedCoverUrl = null;
-    let selectedBookData = null; // Stores { title, author, cover_url, isbn_13, isbn_10 }
+    let selectedBookData = null; // Includes metadata used for library category filtering.
 
     // --- Functions ---
 
@@ -106,7 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
             author: data.author || '',
             cover_url: data.thumbnail || '',
             isbn_13: data.isbn_13 || '',
-            isbn_10: data.isbn_10 || ''
+            isbn_10: data.isbn_10 || '',
+            source_category: data.source_category || '',
+            category: data.category || '',
+            metadata_source: data.source || ''
         };
         
         let imagesHtml = '';
@@ -180,6 +183,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bookCard.dataset.coverUrl = book.thumbnail || '';
             bookCard.dataset.isbn13 = book.isbn_13 || '';
             bookCard.dataset.isbn10 = book.isbn_10 || '';
+            bookCard.dataset.sourceCategory = book.source_category || '';
+            bookCard.dataset.category = book.category || '';
+            bookCard.dataset.metadataSource = book.source || '';
 
             const placeholder = `https://placehold.co/150x225/2a2a2a/ffffff?text=No IMG`;
             const cover = book.thumbnail || placeholder;
@@ -220,7 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 author: selectedCard.dataset.author || '',
                 cover_url: selectedCard.dataset.coverUrl || '',
                 isbn_13: selectedCard.dataset.isbn13 || '',
-                isbn_10: selectedCard.dataset.isbn10 || ''
+                isbn_10: selectedCard.dataset.isbn10 || '',
+                source_category: selectedCard.dataset.sourceCategory || '',
+                category: selectedCard.dataset.category || '',
+                metadata_source: selectedCard.dataset.metadataSource || ''
             };
 
             selectedCoverUrl = selectedBookData.cover_url;
@@ -425,7 +434,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     file_id: fileId,
                     title: title,
                     author: author,
-                    cover_url: coverUrl
+                    cover_url: coverUrl,
+                    isbn_13: selectedBookData?.isbn_13 || '',
+                    source_category: selectedBookData?.source_category || '',
+                    category: selectedBookData?.category || '',
+                    metadata_source: selectedBookData?.metadata_source || ''
                 })
             });
 

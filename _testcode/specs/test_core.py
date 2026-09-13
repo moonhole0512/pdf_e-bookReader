@@ -3,6 +3,7 @@ import sys
 import unittest
 import tempfile
 import sqlite3
+from unittest.mock import patch
 from pathlib import Path
 
 # Add project root to sys.path
@@ -138,7 +139,13 @@ class TestEBookReaderCore(unittest.TestCase):
     def test_background_scanner_and_group_by_volume_count(self):
         """Verify non-blocking scanner registers books and counts volumes accurately."""
         # Run scan synchronously inside test via _run_scan_thread
-        LibraryScanner._run_scan_thread(self.app, batch_size=10, clean_missing=False)
+        metadata = {
+            'title': 'Test Book', 'author': 'Author', 'cover_url': 'https://example.test/cover.jpg',
+            'isbn': '9781234567890', 'source_category': 'Comics & Graphic Novels',
+            'category': '만화', 'source': 'Google Books'
+        }
+        with patch('services.book_enricher.enrich_book_info', return_value=metadata):
+            LibraryScanner._run_scan_thread(self.app, batch_size=10, clean_missing=False)
 
         # Check that file and book were created
         file_obj = File.query.filter_by(file_path="Test Book_01.pdf").first()
@@ -148,6 +155,8 @@ class TestEBookReaderCore(unittest.TestCase):
         book = file_obj.book
         self.assertEqual(book.title, "Test Book")
         self.assertEqual(book.total_volumes, 1)
+        self.assertEqual((book.isbn_13, book.source_category, book.category, book.metadata_source),
+                         ('9781234567890', 'Comics & Graphic Novels', '만화', 'Google Books'))
 
         # Scanner status check
         status = LibraryScanner.get_status()
