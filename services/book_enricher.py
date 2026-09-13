@@ -555,7 +555,10 @@ class LibraryEnricher:
                 query = Book.query
                 if not force_all:
                     # A normal enrichment also completes books missing discovery categories.
-                    query = query.filter((Book.cover_url == None) | (Book.author == None) | (Book.author == 'Unknown') | (Book.category == None))
+                    query = query.filter(
+                        (Book.cover_url == None) | (Book.author == None) | (Book.author == 'Unknown') |
+                        (Book.category == None) | (Book.category == CATEGORY_UNCLASSIFIED)
+                    )
 
                 books_to_process = query.all()
                 total = len(books_to_process)
@@ -575,7 +578,7 @@ class LibraryEnricher:
                     metadata_saved = False
 
                     for f in book.files:
-                        if not force_all and f.cover_url and f.author and book.category:
+                        if not force_all and f.cover_url and f.author and book.category and book.category != CATEGORY_UNCLASSIFIED:
                             continue
 
                         meta = enrich_book_info(book.title, volume=f.volume_number, author_hint=known_author)

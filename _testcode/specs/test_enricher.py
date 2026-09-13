@@ -100,10 +100,14 @@ class TestBookEnricher(unittest.TestCase):
         self.assertEqual(row, ('기존 책', '기존 저자', None, None, '미분류', None))
 
     def test_background_enricher_persists_compact_metadata(self):
-        book = Book(title='Metadata Test', author='Unknown')
+        # Simulates an existing fully enriched book that needs only category backfill.
+        book = Book(title='Metadata Test', author='Known Author', cover_url='https://example.test/old-cover.jpg',
+                    category='미분류')
         db.session.add(book)
         db.session.commit()
         file_obj = File(book_id=book.id, file_path='metadata_test.pdf', volume_number=1)
+        file_obj.author = 'Known Author'
+        file_obj.cover_url = 'https://example.test/old-cover.jpg'
         db.session.add(file_obj)
         db.session.commit()
         metadata = {
