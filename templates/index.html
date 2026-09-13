@@ -18,7 +18,7 @@
                     <span class="pending-edits-dot"></span>
                     <span id="pending-edits-label">편집 대기 0건</span>
                 </button>
-                <button id="auto-enrich-btn" class="scan-btn enrich-btn" title="온라인에서 표지와 저자 정보를 자동으로 검색합니다">정보 자동 검색</button>
+                <button id="auto-enrich-btn" class="scan-btn enrich-btn" title="누락된 도서 정보만 안전하게 보완합니다">정보 보완</button>
                 <button id="scan-pdf-btn" class="scan-btn">PDF 스캔</button>
                 <button id="scan-settings-btn" class="settings-btn">
                     <div class="settings-icon-sliders">
@@ -267,6 +267,20 @@
     </main>
 
     <!-- Shuffle Recommendation Modal -->
+    <div id="metadata-enrich-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="metadata-enrich-title">
+        <div class="modal-content metadata-enrich-modal-content">
+            <h2 id="metadata-enrich-title">도서 정보 보완</h2>
+            <p class="metadata-enrich-description">새 PDF는 <strong>PDF 스캔</strong>할 때 자동으로 정보를 가져옵니다. 기존 서가에는 필요한 경우에만 아래 작업을 실행하세요.</p>
+            <div class="metadata-enrich-choices">
+                <button id="enrich-missing-btn" class="action-btn scan-btn">누락 정보만 보완</button>
+                <p>표지·저자·장르가 없는 책만 검색합니다. 이미 저장한 정보는 유지됩니다.</p>
+                <button id="enrich-all-btn" class="action-btn sub-btn">전체 서가 다시 가져오기</button>
+                <p class="metadata-enrich-warning">기능 업데이트 등으로 전체 정보를 새로 가져와야 할 때만 사용하세요. 온라인 정보가 기존 자동 정보와 수동 수정 내용을 바꿀 수 있습니다.</p>
+            </div>
+            <div class="modal-actions"><button id="metadata-enrich-close-btn">닫기</button></div>
+        </div>
+    </div>
+
     <div id="shuffle-recommend-modal" class="modal-overlay hidden">
         <div class="modal-content shuffle-modal-content">
             <div class="shuffle-modal-header">

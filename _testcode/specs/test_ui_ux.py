@@ -46,6 +46,11 @@ class TestUIUXEnhancements(unittest.TestCase):
         # 1. Header with action buttons
         self.assertIn('auto-enrich-btn', html)
         self.assertIn('scan-pdf-btn', html)
+        self.assertIn('metadata-enrich-modal', html)
+        self.assertIn('enrich-missing-btn', html)
+        self.assertIn('enrich-all-btn', html)
+        self.assertIn('누락 정보만 보완', html)
+        self.assertIn('전체 서가 다시 가져오기', html)
 
         # 2. Book grid & cards intact
         self.assertIn('book-grid', html)

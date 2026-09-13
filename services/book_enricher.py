@@ -627,20 +627,26 @@ class LibraryEnricher:
 
                         meta = enrich_book_info(book.title, volume=f.volume_number, author_hint=known_author)
                         if meta:
-                            if not known_author and meta.get('author') not in (None, '알 수 없음', 'Unknown'):
+                            if (force_all or not known_author) and meta.get('author') not in (None, '알 수 없음', 'Unknown'):
                                 known_author = meta['author']
-                            if not first_cover and meta.get('cover_url'):
+                            if (force_all or not first_cover) and meta.get('cover_url'):
                                 first_cover = meta['cover_url']
                             if not metadata_saved:
-                                book.isbn_13 = meta.get('isbn') or book.isbn_13
-                                book.source_category = meta.get('source_category') or book.source_category
-                                book.category = meta.get('category') or book.category or CATEGORY_UNCLASSIFIED
-                                book.metadata_source = meta.get('source') or book.metadata_source
+                                if force_all or not book.isbn_13:
+                                    book.isbn_13 = meta.get('isbn') or book.isbn_13
+                                if force_all or needs_aladin_category_repair or not book.source_category:
+                                    book.source_category = meta.get('source_category') or book.source_category
+                                if force_all or needs_aladin_category_repair or not book.category or book.category == CATEGORY_UNCLASSIFIED:
+                                    book.category = meta.get('category') or book.category or CATEGORY_UNCLASSIFIED
+                                if force_all or not book.metadata_source:
+                                    book.metadata_source = meta.get('source') or book.metadata_source
                                 metadata_saved = True
 
-                            f.title = meta.get('title') or f.title
-                            f.author = meta.get('author') or f.author
-                            if meta.get('cover_url'):
+                            if force_all or not f.title:
+                                f.title = meta.get('title') or f.title
+                            if force_all or not f.author or f.author in ('알 수 없음', 'Unknown'):
+                                f.author = meta.get('author') or f.author
+                            if (force_all or not f.cover_url) and meta.get('cover_url'):
                                 f.cover_url = meta['cover_url']
 
                             updated_files_count += 1

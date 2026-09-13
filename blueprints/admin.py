@@ -79,11 +79,12 @@ def trigger_enrichment():
 
     app = current_app._get_current_object()
     started = LibraryEnricher.start_enrichment(app, force_all=force_all)
+    operation_name = "전체 서가 정보 다시 가져오기" if force_all else "누락 정보 보완"
 
     if started:
         return jsonify({
             "success": True,
-            "message": "도서 정보 자동 검색 및 표지 다운로드를 시작했습니다.",
+            "message": f"{operation_name}을 시작했습니다.",
             "status": LibraryEnricher.get_status()
         })
     else:

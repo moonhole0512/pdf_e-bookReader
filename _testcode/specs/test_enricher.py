@@ -141,6 +141,48 @@ class TestBookEnricher(unittest.TestCase):
         self.assertEqual((updated.isbn_13, updated.source_category, updated.category, updated.metadata_source),
                          ('9781234567890', 'Psychology', 'Psychology', 'Google Books'))
 
+    def test_safe_enrichment_never_overwrites_existing_manual_fields(self):
+        book = Book(title='Manual Title', author='Manual Author',
+                    cover_url='https://example.test/manual-book.jpg', category='Manual Category')
+        db.session.add(book)
+        db.session.commit()
+        file_obj = File(book_id=book.id, file_path='manual_metadata.pdf', volume_number=1,
+                        title='Manual Volume Title', author='Manual File Author',
+                        cover_url='https://example.test/manual-file.jpg')
+        db.session.add(file_obj)
+        db.session.commit()
+        metadata = {
+            'title': 'Provider Title', 'author': 'Provider Author',
+            'cover_url': 'https://example.test/provider.jpg', 'isbn': '9781234567890',
+            'source_category': 'Provider Path', 'category': 'Provider Category', 'source': 'aladin'
+        }
+        with patch('services.book_enricher.enrich_book_info', return_value=metadata):
+            LibraryEnricher._run_enrich_thread(self.app, force_all=False)
+
+        db.session.expire_all()
+        updated_book = db.session.get(Book, book.id)
+        updated_file = db.session.get(File, file_obj.id)
+        self.assertEqual(updated_book.title, 'Manual Title')
+        self.assertEqual(updated_book.author, 'Manual Author')
+        self.assertEqual(updated_book.cover_url, 'https://example.test/manual-book.jpg')
+        self.assertEqual(updated_book.category, 'Manual Category')
+        self.assertEqual(updated_book.source_category, 'Provider Path')
+        self.assertEqual(updated_file.title, 'Manual Volume Title')
+        self.assertEqual(updated_file.author, 'Manual File Author')
+        self.assertEqual(updated_file.cover_url, 'https://example.test/manual-file.jpg')
+
+        with patch('services.book_enricher.enrich_book_info', return_value=metadata):
+            LibraryEnricher._run_enrich_thread(self.app, force_all=True)
+        db.session.expire_all()
+        refreshed_book = db.session.get(Book, book.id)
+        refreshed_file = db.session.get(File, file_obj.id)
+        self.assertEqual(refreshed_book.author, 'Provider Author')
+        self.assertEqual(refreshed_book.cover_url, 'https://example.test/provider.jpg')
+        self.assertEqual(refreshed_book.category, 'Provider Category')
+        self.assertEqual(refreshed_file.title, 'Provider Title')
+        self.assertEqual(refreshed_file.author, 'Provider Author')
+        self.assertEqual(refreshed_file.cover_url, 'https://example.test/provider.jpg')
+
     def test_background_enricher_repairs_mixed_aladin_tags(self):
         book = Book(title='Mixed Aladin Tags', author='Known Author',
                     cover_url='https://example.test/old-cover.jpg',
@@ -176,7 +218,6 @@ class TestBookEnricher(unittest.TestCase):
         self.assertEqual(db.session.get(Book, book.id).category, '미분류')
 
     def test_enrichment_api_endpoints(self):
-        import time
         user = User(username="admin_user", is_admin=True)
         db.session.add(user)
         db.session.commit()
@@ -184,11 +225,16 @@ class TestBookEnricher(unittest.TestCase):
         with self.client.session_transaction() as sess:
             sess['user_id'] = user.id
 
-        # Trigger enrichment
-        resp = self.client.post('/api/admin/enrich', json={'force_all': False})
-        self.assertIn(resp.status_code, (200, 409))
-        data = resp.get_json()
-        self.assertIn('status', data)
+        with patch.object(LibraryEnricher, 'start_enrichment', return_value=True) as start:
+            safe_resp = self.client.post('/api/admin/enrich', json={'force_all': False})
+            full_resp = self.client.post('/api/admin/enrich', json={'force_all': True})
+
+        self.assertEqual(safe_resp.status_code, 200)
+        self.assertIn('누락 정보 보완', safe_resp.get_json()['message'])
+        self.assertEqual(full_resp.status_code, 200)
+        self.assertIn('전체 서가 정보 다시 가져오기', full_resp.get_json()['message'])
+        self.assertEqual(start.call_args_list[0].kwargs['force_all'], False)
+        self.assertEqual(start.call_args_list[1].kwargs['force_all'], True)
 
         # Status check
         status_resp = self.client.get('/api/admin/enrich/status')
@@ -196,8 +242,6 @@ class TestBookEnricher(unittest.TestCase):
         s_data = status_resp.get_json()
         self.assertIn('state', s_data)
 
-        # Wait briefly for thread to finish on empty DB
-        time.sleep(0.3)
 
     def test_isbn_exact_lookup_and_bypass_relevance(self):
         """Verify search_book_candidates and /api/book/lookup resolve exact ISBNs even for out-of-print books."""

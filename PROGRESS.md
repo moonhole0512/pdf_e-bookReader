@@ -1,4 +1,5 @@
 ## Done
+- [x] [Implementation] Split metadata work into safe missing-information completion and explicit full-library refresh; PDF scanning continues to enrich new files automatically, existing manual fields are protected in safe mode, and independent evaluator PASS.
 - [x] [Debugging] Restored primary-category labels in the reading and recommendation shelves after ISBN updates; confirmed metadata persists, restarted the stale local template server, added cross-shelf regression coverage, and received independent evaluator PASS.
 - [x] [Debugging] Replaced mixed Aladin JSON-LD genre tags with one primary genre from the product subject-classification hierarchy; retained the full path, repaired comma-separated legacy tags through automatic enrichment, and verified with an independent evaluator PASS.
 - [x] [Implementation] Preserve bookstore provider categories exactly, backfill missing categories through automatic enrichment, and generate library filters from the stored values (independent evaluator PASS).

@@ -1857,6 +1857,32 @@ header nav a:hover {
     }
 }
 
+.metadata-enrich-modal-content {
+    max-width: 460px;
+}
+
+.metadata-enrich-description,
+.metadata-enrich-choices p {
+    color: #aeb5c5;
+    line-height: 1.55;
+}
+
+.metadata-enrich-choices {
+    display: grid;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.metadata-enrich-choices .action-btn {
+    width: 100%;
+    margin: 0;
+}
+
+.metadata-enrich-warning {
+    color: #d9aa74 !important;
+    font-size: 0.84rem;
+}
+
 /* Keep the centered mobile dock centered while it fades in Zen mode. */
 @media (max-width: 600px) {
     #floating-controls.reader-floating-dock.reader-controls-hidden {
