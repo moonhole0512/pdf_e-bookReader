@@ -248,6 +248,36 @@ class TestUIUXEnhancements(unittest.TestCase):
             db.session.delete(legacy_unclassified)
             db.session.commit()
 
+    def test_reading_and_recommended_cards_render_category_labels(self):
+        """Every bookshelf section shows the same primary category below its title."""
+        user = User.query.filter_by(username="Gruzam").first()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+
+        book = Book(title="Section Category Test", author="Author", category="라이트 노벨")
+        db.session.add(book)
+        db.session.commit()
+        file_obj = File(book_id=book.id, file_path="section_category_test.pdf", volume_number=1,
+                        total_pages=100, author="Author")
+        db.session.add(file_obj)
+        db.session.commit()
+        state = ReadingState(user_id=user.id, file_id=file_obj.id, current_page=10)
+        db.session.add(state)
+        db.session.commit()
+        try:
+            with patch('blueprints.library.get_recommended_books', return_value=[book]):
+                html = self.client.get('/').get_data(as_text=True)
+            self.assertIn('독서 중인 책', html)
+            self.assertIn('추천 책', html)
+            self.assertGreaterEqual(html.count('Section Category Test'), 2)
+            self.assertGreaterEqual(html.count('book-category-label'), 2)
+            self.assertGreaterEqual(html.count('라이트 노벨'), 2)
+        finally:
+            db.session.delete(state)
+            db.session.delete(file_obj)
+            db.session.delete(book)
+            db.session.commit()
+
     def test_manual_aladin_selection_persists_subject_category(self):
         """Manual Aladin choice resolves the selected product's subject category at save time."""
         user = User.query.filter_by(username="Gruzam").first()
