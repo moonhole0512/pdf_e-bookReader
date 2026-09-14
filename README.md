@@ -1,3 +1,6 @@
+https://hub.docker.com/r/gruzam/e-book-reader
+
+
 # E-Book Reader
 
 PDF 전자책과 만화 파일을 한곳에서 관리하고 웹 브라우저로 읽는 개인용 서재입니다. PC와 Synology NAS에서 사용할 수 있으며, 책이 많아져도 빠르게 찾을 수 있도록 서재와 읽기 진행률을 단순하게 관리합니다.
