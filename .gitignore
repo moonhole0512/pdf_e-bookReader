@@ -28,3 +28,10 @@ Thumbs.db
 
 # User PDF files
 pdfs/
+
+# Local agent and project-session guidance
+AGENTS.md
+ARCHITECTURE.md
+PROGRESS.md
+agents/
+integrations/
