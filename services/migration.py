@@ -1,15 +1,125 @@
 import os
-import shutil
 import sqlite3
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+BOOK_METADATA_COLUMNS = (
+    ('isbn_13', 'VARCHAR(13)'),
+    ('source_category', 'VARCHAR(255)'),
+    ('category', 'VARCHAR(50)'),
+    ('metadata_source', 'VARCHAR(50)'),
+)
+
+
+def _table_exists(cursor, table_name):
+    cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
+def _table_columns(cursor, table_name):
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    return {row[1] for row in cursor.fetchall()}
+
+
+def _index_names(cursor, table_name):
+    cursor.execute(f"PRAGMA index_list({table_name})")
+    return {row[1] for row in cursor.fetchall()}
+
+
+def _has_single_file_unique_constraint(cursor):
+    """Return whether reading_state still has the legacy UNIQUE(file_id)."""
+    if not _table_exists(cursor, 'reading_state'):
+        return False
+
+    cursor.execute("PRAGMA index_list(reading_state)")
+    for index_row in cursor.fetchall():
+        # PRAGMA index_list columns: seq, name, unique, origin, partial
+        if not index_row[2]:
+            continue
+        index_name = index_row[1]
+        cursor.execute(f"PRAGMA index_info({index_name})")
+        index_columns = [row[2] for row in cursor.fetchall()]
+        if index_columns == ['file_id']:
+            return True
+    return False
+
+
+def _normalized_relative_path(raw_path, pdf_root_path):
+    """Return the migration target for a stored path, or None if unchanged."""
+    if not raw_path or not pdf_root_path:
+        return None
+
+    clean_path = raw_path.replace('\\', '/')
+    normalized_pdf_root = os.path.abspath(pdf_root_path).replace('\\', '/').rstrip('/')
+    rel_path = None
+
+    if clean_path.startswith(normalized_pdf_root):
+        rel_path = clean_path[len(normalized_pdf_root):].lstrip('/')
+    elif '/pdfs/' in clean_path:
+        rel_path = clean_path.split('/pdfs/')[-1].lstrip('/')
+    elif os.path.isabs(raw_path):
+        rel_path = os.path.basename(raw_path)
+
+    if rel_path and rel_path != raw_path:
+        return rel_path
+    return None
+
+
+def _pending_migrations(cursor, pdf_root_path):
+    """List changes that this module would make to the existing database."""
+    pending = []
+
+    if _table_exists(cursor, 'user'):
+        if 'is_admin' not in _table_columns(cursor, 'user'):
+            pending.append("user.is_admin")
+
+    if _table_exists(cursor, 'book'):
+        book_columns = _table_columns(cursor, 'book')
+        pending.extend(
+            f"book.{name}" for name, _ in BOOK_METADATA_COLUMNS
+            if name not in book_columns
+        )
+
+        book_indexes = _index_names(cursor, 'book')
+        if 'ix_book_category' not in book_indexes:
+            pending.append("book.ix_book_category")
+        if 'ix_book_isbn_13' not in book_indexes:
+            pending.append("book.ix_book_isbn_13")
+
+        if 'category' in book_columns:
+            cursor.execute(
+                "SELECT 1 FROM book WHERE category IS NULL OR TRIM(category) = '' LIMIT 1"
+            )
+            if cursor.fetchone() is not None:
+                pending.append("book.category_defaults")
+
+    if _has_single_file_unique_constraint(cursor):
+        pending.append("reading_state.user_file_constraint")
+
+    if pdf_root_path and _table_exists(cursor, 'file'):
+        cursor.execute("SELECT file_path FROM file")
+        if any(_normalized_relative_path(row[0], pdf_root_path) for row in cursor.fetchall()):
+            pending.append("file.relative_paths")
+
+    return pending
+
+
+def _create_database_backup(conn, backup_path):
+    """Create a consistent SQLite backup, including any active WAL contents."""
+    with sqlite3.connect(backup_path) as backup_conn:
+        conn.backup(backup_conn)
+
+
 def migrate_database(db_path: str, pdf_root_path: str):
     """
-    Safely migrates an existing SQLite database:
-    1. Backs up library.db to library.db.bak
+    Safely migrates an existing SQLite database when changes are required:
+    1. Checks the database before creating library.db.bak
+    2. Backs up library.db only when a migration is pending
     2. Migrates reading_state table constraint to composite (user_id, file_id)
     3. Normalizes existing absolute file paths to POSIX relative paths
     4. Ensures user table has is_admin column and grants admin to existing users
@@ -17,13 +127,6 @@ def migrate_database(db_path: str, pdf_root_path: str):
     """
     if not os.path.exists(db_path):
         return
-
-    backup_path = f"{db_path}.bak"
-    try:
-        shutil.copy2(db_path, backup_path)
-        logger.info(f"Created database backup at {backup_path}")
-    except Exception as e:
-        logger.warning(f"Failed to create database backup: {e}")
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -34,9 +137,21 @@ def migrate_database(db_path: str, pdf_root_path: str):
         cursor.execute("PRAGMA busy_timeout=5000;")
         cursor.execute("PRAGMA synchronous=NORMAL;")
 
+        pending = _pending_migrations(cursor, pdf_root_path)
+        if not pending:
+            logger.info("Database migration not required; skipping backup and migration.")
+            return
+
+        logger.info("Database migration required: %s", ', '.join(pending))
+        backup_path = f"{db_path}.bak"
+        try:
+            _create_database_backup(conn, backup_path)
+            logger.info(f"Created database backup at {backup_path}")
+        except Exception as e:
+            logger.warning(f"Failed to create database backup: {e}")
+
         # --- 1. User table migration ---
-        cursor.execute("PRAGMA table_info(user)")
-        user_columns = [row[1] for row in cursor.fetchall()]
+        user_columns = _table_columns(cursor, 'user') if _table_exists(cursor, 'user') else set()
         if 'is_admin' not in user_columns:
             logger.info("Adding 'is_admin' column to user table.")
             cursor.execute("ALTER TABLE user ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL")
@@ -46,31 +161,24 @@ def migrate_database(db_path: str, pdf_root_path: str):
 
         # --- 1b. Book metadata migration ---
         # Additive SQLite changes preserve every existing book and reading state.
-        cursor.execute("PRAGMA table_info(book)")
-        book_columns = [row[1] for row in cursor.fetchall()]
-        for name, column_type in (
-            ('isbn_13', 'VARCHAR(13)'),
-            ('source_category', 'VARCHAR(255)'),
-            ('category', 'VARCHAR(50)'),
-            ('metadata_source', 'VARCHAR(50)'),
-        ):
+        book_columns = _table_columns(cursor, 'book') if _table_exists(cursor, 'book') else set()
+        for name, column_type in BOOK_METADATA_COLUMNS:
             if name not in book_columns:
                 logger.info("Adding '%s' column to book table.", name)
                 cursor.execute(f"ALTER TABLE book ADD COLUMN {name} {column_type}")
-        cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_category ON book (category)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_isbn_13 ON book (isbn_13)")
-        # Every book must remain discoverable even if a provider has no matching record.
-        cursor.execute("UPDATE book SET category = '미분류' WHERE category IS NULL OR TRIM(category) = ''")
-        conn.commit()
+        if _table_exists(cursor, 'book'):
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_category ON book (category)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_isbn_13 ON book (isbn_13)")
+            # Every book must remain discoverable even if a provider has no matching record.
+            cursor.execute("UPDATE book SET category = '미분류' WHERE category IS NULL OR TRIM(category) = ''")
+            conn.commit()
 
         # --- 2. ReadingState table migration ---
         # Check if reading_state has unique(file_id) constraint
         cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='reading_state'")
         table_def_row = cursor.fetchone()
         if table_def_row:
-            table_sql = table_def_row[0] or ""
-            # If table_sql has 'UNIQUE (file_id)' or 'file_id' ... 'UNIQUE', need to recreate
-            if "UNIQUE (file_id)" in table_sql or "file_id INTEGER UNIQUE" in table_sql or "file_id INT UNIQUE" in table_sql or "UNIQUE(file_id)" in table_sql:
+            if _has_single_file_unique_constraint(cursor):
                 logger.info("Migrating reading_state table to composite unique constraint (user_id, file_id)...")
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS reading_state_new (
@@ -96,30 +204,13 @@ def migrate_database(db_path: str, pdf_root_path: str):
                 logger.info("reading_state migration completed successfully.")
 
         # --- 3. Normalize File paths to Relative POSIX paths ---
-        if pdf_root_path:
+        if pdf_root_path and _table_exists(cursor, 'file'):
             cursor.execute("SELECT id, file_path FROM file")
             rows = cursor.fetchall()
-            normalized_pdf_root = os.path.abspath(pdf_root_path).replace('\\', '/').rstrip('/')
 
             updates = []
             for file_id, raw_path in rows:
-                if not raw_path:
-                    continue
-                clean_path = raw_path.replace('\\', '/')
-                rel_path = None
-
-                # Check if path starts with pdf_root_path
-                if clean_path.startswith(normalized_pdf_root):
-                    rel_path = clean_path[len(normalized_pdf_root):].lstrip('/')
-                elif '/pdfs/' in clean_path:
-                    # Docker or alternative root fallback
-                    parts = clean_path.split('/pdfs/')
-                    rel_path = parts[-1].lstrip('/')
-                elif os.path.isabs(raw_path):
-                    # Check if file exists relative to pdf_root_path using basename
-                    basename = os.path.basename(raw_path)
-                    rel_path = basename
-                
+                rel_path = _normalized_relative_path(raw_path, pdf_root_path)
                 if rel_path and rel_path != raw_path:
                     updates.append((rel_path, file_id))
 

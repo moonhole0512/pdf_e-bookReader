@@ -118,6 +118,24 @@ class TestBookEnricher(unittest.TestCase):
         conn.close()
         self.assertTrue({'isbn_13', 'source_category', 'category', 'metadata_source'}.issubset(columns))
         self.assertEqual(row, ('기존 책', '기존 저자', None, None, '미분류', None))
+        self.assertTrue(os.path.exists(f'{legacy_path}.bak'))
+
+        backup_mtime = os.stat(f'{legacy_path}.bak').st_mtime_ns
+        migrate_database(legacy_path, self.temp_dir.name)
+        self.assertEqual(
+            os.stat(f'{legacy_path}.bak').st_mtime_ns,
+            backup_mtime,
+            'A second startup must not recreate the backup after migration is complete.',
+        )
+
+    def test_current_database_skips_migration_and_backup(self):
+        """An up-to-date database should not create or rewrite a backup on startup."""
+        backup_path = f'{self.db_path}.bak'
+        self.assertFalse(os.path.exists(backup_path))
+
+        migrate_database(self.db_path, self.temp_dir.name)
+
+        self.assertFalse(os.path.exists(backup_path))
 
     def test_background_enricher_persists_provider_category_metadata(self):
         # Simulates an existing fully enriched book that needs only category backfill.

@@ -1,4 +1,5 @@
 ## Done
+- [x] [Implementation] Gated database migration and backup creation behind a complete pending-change check; current databases now skip migration and `.bak` creation, legacy schemas migrate and back up once, with focused regression coverage and independent evaluator PASS.
 - [x] [Implementation] Split metadata work into safe missing-information completion and explicit full-library refresh; PDF scanning continues to enrich new files automatically, existing manual fields are protected in safe mode, and independent evaluator PASS.
 - [x] [Debugging] Restored primary-category labels in the reading and recommendation shelves after ISBN updates; confirmed metadata persists, restarted the stale local template server, added cross-shelf regression coverage, and received independent evaluator PASS.
 - [x] [Debugging] Replaced mixed Aladin JSON-LD genre tags with one primary genre from the product subject-classification hierarchy; retained the full path, repaired comma-separated legacy tags through automatic enrichment, and verified with an independent evaluator PASS.
@@ -70,3 +71,4 @@
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
 - 40/40 automated tests passed in `_testcode/specs/` (including `test_enricher.py` and `test_ui_ux.py`).
 - Evaluator subagent verified Step 46 items and confirmed PASS.
+- Database migration verification: focused migration/backup tests pass (4/4); live startup logs show the up-to-date database skips migration and backup, while the full suite remains 53/58 due to the same 5 pre-existing live-data/external-network failures.
