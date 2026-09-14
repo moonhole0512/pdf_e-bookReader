@@ -20,7 +20,8 @@ e-book_reader/
 │   └── api.py              # External integrations (Google Books metadata lookup)
 ├── services/               # Core business services
 │   ├── scanner.py          # Non-blocking background PDF file scanner & sync
-│   └── book_service.py     # Book grouping, optimized queries, metadata fetcher
+│   ├── book_service.py     # Book grouping, optimized queries, metadata fetcher
+│   └── categories.py       # Compact app-owned category normalization
 ├── templates/              # Jinja2 HTML templates
 │   ├── index.html          # Main library bookshelf view
 │   ├── reader.html         # pdf.js reader view
@@ -39,7 +40,7 @@ e-book_reader/
 ## Data Flow & Invariants
 1. **Portable Paths**: Database stores file paths relative to `PDF_ROOT_PATH` using POSIX separators (`/`). File resolution joins `PDF_ROOT_PATH` + relative path at runtime to ensure NAS & PC portability.
 2. **Reading State**: Reading progress is uniquely keyed by `(user_id, file_id)`, allowing multiple users to read the same file independently.
-3. **Discovery Metadata**: `Book` stores ISBN-13, a provider category path, one filter category, and metadata source. For Aladin, the product page's hierarchical subject classification is retained as the path while its usable middle level becomes the single display/filter category; mixed JSON-LD tag lists are never used. Google Books labels are retained without app-defined mapping. Books with no provider category remain `미분류` so none disappear from discovery.
+3. **Discovery Metadata**: `Book` stores ISBN-13, a provider category path, one compact app-owned filter category, and metadata source. Provider paths remain available for traceability, while the UI normalizes them into a small vocabulary (`소설`, `라이트 노벨`, `만화`, `비문학`, `실용`, `미분류`). Mixed JSON-LD tag lists are never used. Books with no provider category remain `미분류` so none disappear from discovery.
 4. **Concurrency**: SQLite runs with `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000` to prevent `database is locked` errors during concurrent reads/writes.
 5. **Non-blocking Operations**: Large library scanning runs in a detached background thread with atomic batch commits and status reporting.
 6. **Metadata Refresh Safety**: New PDFs receive metadata during PDF scanning. Existing-library maintenance defaults to filling missing fields only; an explicitly selected full refresh is required before existing metadata may be replaced.

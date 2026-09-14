@@ -54,7 +54,7 @@ class TestDatabaseMigration(unittest.TestCase):
             """
         )
         conn.execute("INSERT INTO user (id, username, is_admin) VALUES (1, 'reader', 1)")
-        conn.execute("INSERT INTO book (id, title, category) VALUES (1, 'Book', 'Novel')")
+        conn.execute("INSERT INTO book (id, title, category) VALUES (1, 'Book', '소설')")
         conn.execute("INSERT INTO file (id, book_id, file_path) VALUES (1, 1, ?)", (file_path,))
         conn.commit()
         conn.close()
@@ -122,6 +122,55 @@ class TestDatabaseMigration(unittest.TestCase):
         migrate_database(db_path, self.temp_dir.name)
 
         self.assertEqual(os.stat(backup_path).st_mtime_ns, backup_mtime)
+
+    def test_provider_categories_are_backfilled_once_and_then_skipped(self):
+        db_path = os.path.join(self.temp_dir.name, 'legacy_categories.db')
+        self._create_current_schema(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE book SET category = ?, source_category = ? WHERE id = 1",
+            ('순정만화', '국내도서 > 만화/라이트노벨 > 순정만화'),
+        )
+        conn.commit()
+        conn.close()
+
+        migrate_database(db_path, self.temp_dir.name)
+
+        conn = sqlite3.connect(db_path)
+        category = conn.execute("SELECT category FROM book WHERE id = 1").fetchone()[0]
+        conn.close()
+        self.assertEqual(category, '만화')
+        backup_path = f'{db_path}.bak'
+        self.assertTrue(os.path.exists(backup_path))
+        backup_mtime = os.stat(backup_path).st_mtime_ns
+
+        migrate_database(db_path, self.temp_dir.name)
+
+        self.assertEqual(os.stat(backup_path).st_mtime_ns, backup_mtime)
+
+    def test_legacy_book_without_source_category_is_migrated_safely(self):
+        db_path = os.path.join(self.temp_dir.name, 'legacy_without_source.db')
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE user (id INTEGER PRIMARY KEY, username VARCHAR(80));
+            CREATE TABLE book (id INTEGER PRIMARY KEY, title VARCHAR(255), category VARCHAR(50));
+            CREATE TABLE file (id INTEGER PRIMARY KEY, file_path VARCHAR(1024));
+            INSERT INTO user (id, username) VALUES (1, 'reader');
+            INSERT INTO book (id, title, category) VALUES (1, 'Comic', '순정만화');
+            """
+        )
+        conn.commit()
+        conn.close()
+
+        migrate_database(db_path, self.temp_dir.name)
+
+        conn = sqlite3.connect(db_path)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(book)")}
+        category = conn.execute("SELECT category FROM book WHERE id = 1").fetchone()[0]
+        conn.close()
+        self.assertIn('source_category', columns)
+        self.assertEqual(category, '만화')
 
 
 if __name__ == '__main__':

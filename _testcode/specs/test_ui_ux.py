@@ -1,7 +1,9 @@
 import unittest
+from urllib.parse import quote
 from unittest.mock import patch
 from pathlib import Path
 import sys
+from sqlalchemy import func
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -205,7 +207,7 @@ class TestUIUXEnhancements(unittest.TestCase):
             self.assertEqual(reloaded_file.book.cover_url, new_cover)
             self.assertEqual(reloaded_file.book.isbn_13, '9781234567890')
             self.assertEqual(reloaded_file.book.source_category, 'Comics & Graphic Novels')
-            self.assertEqual(reloaded_file.book.category, 'Comics & Graphic Novels')
+            self.assertEqual(reloaded_file.book.category, '만화')
             self.assertEqual(reloaded_file.book.metadata_source, 'Google Books')
         finally:
             # Clean up temporary test data cleanly
@@ -219,7 +221,7 @@ class TestUIUXEnhancements(unittest.TestCase):
         with self.client.session_transaction() as sess:
             sess['user_id'] = user.id
 
-        test_book = Book(title="Category Filter Test", author="Author", category="Psychology",
+        test_book = Book(title="Category Filter Test", author="Author", category="비문학",
                          source_category="Psychology", isbn_13="9781234567890",
                          metadata_source="Google Books")
         db.session.add(test_book)
@@ -235,14 +237,14 @@ class TestUIUXEnhancements(unittest.TestCase):
         db.session.add(legacy_file)
         db.session.commit()
         try:
-            resp = self.client.get('/?category=Psychology')
+            resp = self.client.get('/?category=비문학')
             self.assertEqual(resp.status_code, 200)
             html = resp.get_data(as_text=True)
             self.assertIn('category-filter', html)
             self.assertIn('Category Filter Test', html)
             self.assertNotIn('Category Exclusion Test', html)
             self.assertIn('book-category-label', html)
-            self.assertIn('Psychology', html)
+            self.assertIn('비문학', html)
             unclassified = self.client.get('/?category=미분류').get_data(as_text=True)
             self.assertIn('Legacy Unclassified Test', unclassified)
         finally:
@@ -251,6 +253,42 @@ class TestUIUXEnhancements(unittest.TestCase):
             db.session.delete(other_book)
             db.session.delete(legacy_file)
             db.session.delete(legacy_unclassified)
+            db.session.commit()
+
+    def test_category_filter_hides_long_tail_in_more_menu(self):
+        """The all-books shelf keeps only the five most-used categories visible."""
+        user = User.query.filter_by(username="Gruzam").first()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+
+        categories = ['소설', '라이트 노벨', '만화', '비문학', '실용', '미분류']
+        books = [Book(title=f'Filter Overflow {index}', author='Author', category=category)
+                 for index, category in enumerate(categories, 1)]
+        db.session.add_all(books)
+        db.session.commit()
+        files = [File(book_id=book.id, file_path=f'filter_overflow_{index}.pdf', volume_number=1)
+                 for index, book in enumerate(books, 1)]
+        db.session.add_all(files)
+        db.session.commit()
+        try:
+            html = self.client.get('/').get_data(as_text=True)
+            self.assertEqual(html.count('class="filter-chip category-filter'), 5)
+            self.assertIn('category-more-dropdown', html)
+            self.assertIn('분류 더보기', html)
+
+            category_counts = dict(db.session.query(func.coalesce(Book.category, '미분류'), func.count(Book.id))
+                                   .group_by(func.coalesce(Book.category, '미분류')).all())
+            category_options = sorted(category_counts.items(), key=lambda item: (-item[1], item[0]))
+            hidden_name = category_options[5][0]
+            active_html = self.client.get(f'/?category={quote(hidden_name)}').get_data(as_text=True)
+            self.assertEqual(active_html.count('class="filter-chip category-filter'), 5)
+            self.assertIn('class="category-more-option active"', active_html)
+            self.assertIn(hidden_name, active_html)
+        finally:
+            for file_obj in files:
+                db.session.delete(file_obj)
+            for book in books:
+                db.session.delete(book)
             db.session.commit()
 
     def test_reading_and_recommended_cards_render_category_labels(self):

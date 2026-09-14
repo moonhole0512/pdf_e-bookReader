@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import logging
+from services.categories import normalize_app_category
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,15 @@ def _pending_migrations(cursor, pdf_root_path):
             )
             if cursor.fetchone() is not None:
                 pending.append("book.category_defaults")
+            if 'source_category' in book_columns:
+                cursor.execute("SELECT category, source_category FROM book")
+            else:
+                cursor.execute("SELECT category, NULL FROM book")
+            if any(
+                normalize_app_category(category, source_category) != (category or '').strip()
+                for category, source_category in cursor.fetchall()
+            ):
+                pending.append("book.app_categories")
 
     if _has_single_file_unique_constraint(cursor):
         pending.append("reading_state.user_file_constraint")
@@ -120,10 +130,10 @@ def migrate_database(db_path: str, pdf_root_path: str):
     Safely migrates an existing SQLite database when changes are required:
     1. Checks the database before creating library.db.bak
     2. Backs up library.db only when a migration is pending
-    2. Migrates reading_state table constraint to composite (user_id, file_id)
-    3. Normalizes existing absolute file paths to POSIX relative paths
-    4. Ensures user table has is_admin column and grants admin to existing users
-    5. Adds compact book discovery metadata columns on existing libraries
+    3. Migrates reading_state table constraint to composite (user_id, file_id)
+    4. Normalizes existing absolute file paths to POSIX relative paths
+    5. Ensures user table has is_admin column and grants admin to existing users
+    6. Adds compact book discovery metadata columns on existing libraries
     """
     if not os.path.exists(db_path):
         return
@@ -171,6 +181,14 @@ def migrate_database(db_path: str, pdf_root_path: str):
             cursor.execute("CREATE INDEX IF NOT EXISTS ix_book_isbn_13 ON book (isbn_13)")
             # Every book must remain discoverable even if a provider has no matching record.
             cursor.execute("UPDATE book SET category = '미분류' WHERE category IS NULL OR TRIM(category) = ''")
+            cursor.execute("SELECT id, category, source_category FROM book")
+            category_updates = [
+                (normalize_app_category(category, source_category), book_id)
+                for book_id, category, source_category in cursor.fetchall()
+                if normalize_app_category(category, source_category) != (category or '').strip()
+            ]
+            if category_updates:
+                cursor.executemany("UPDATE book SET category = ? WHERE id = ?", category_updates)
             conn.commit()
 
         # --- 2. ReadingState table migration ---

@@ -3,6 +3,7 @@ import urllib.parse
 import re
 import requests
 from typing import Dict, Any, Optional
+from services.categories import normalize_app_category
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +12,12 @@ HEADERS = {
 }
 
 def _category_metadata(info: Dict[str, Any]) -> Dict[str, Optional[str]]:
-    """Preserve Google Books' own category label without app-defined remapping."""
+    """Preserve Google's label while exposing a compact app category."""
     categories = info.get('categories', [])
     source_category = ', '.join(categories) or None
     return {
         'source_category': source_category,
-        'category': categories[0] if categories else None,
+        'category': normalize_app_category(categories[0] if categories else None, source_category),
         'source': 'Google Books'
     }
 

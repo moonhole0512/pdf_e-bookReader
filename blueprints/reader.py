@@ -134,6 +134,9 @@ def update_file_info():
             categories = fetch_aladin_product_categories(data.get('product_url'))
             if categories.get('category'):
                 data.update(categories)
+        if data.get('category') or data.get('source_category'):
+            from services.categories import normalize_app_category
+            data['category'] = normalize_app_category(data.get('category'), data.get('source_category'))
         for field in ('isbn_13', 'source_category', 'category', 'metadata_source'):
             if data.get(field):
                 setattr(file_obj.book, field, data[field])

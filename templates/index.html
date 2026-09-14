@@ -174,11 +174,21 @@
                     <h2>모든 책</h2>
                     <div class="shelf-filter-chips">
                         <a class="filter-chip {% if not active_category %}active{% endif %}" href="{{ url_for('library.index', search_query=search_query) }}">전체 서재</a>
-                        {% for category_name, category_count in category_counts | dictsort %}
-                            {% if category_count %}
-                            <a class="filter-chip category-filter {% if active_category == category_name %}active{% endif %}" href="{{ url_for('library.index', category=category_name, search_query=search_query) }}">{{ category_name }} {{ category_counts[category_name] }}</a>
-                            {% endif %}
+                        {% for category_name, category_count in visible_category_options %}
+                            <a class="filter-chip category-filter {% if active_category == category_name %}active{% endif %}" href="{{ url_for('library.index', category=category_name, search_query=search_query) }}">{{ category_name }} {{ category_count }}</a>
                         {% endfor %}
+                        {% if hidden_category_options %}
+                        <details class="category-more-dropdown">
+                            <summary class="filter-chip">분류 더보기 <span class="category-more-count">+{{ hidden_category_options|length }}</span></summary>
+                            <div class="category-more-panel">
+                                {% for category_name, category_count in hidden_category_options %}
+                                <a class="category-more-option {% if active_category == category_name %}active{% endif %}" href="{{ url_for('library.index', category=category_name, search_query=search_query) }}">
+                                    <span>{{ category_name }}</span><span>{{ category_count }}</span>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </details>
+                        {% endif %}
                         <button class="filter-chip" data-filter="reading">읽는 중</button>
                         <button class="filter-chip" data-filter="unread">
                             <svg class="chip-svg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

@@ -4,6 +4,7 @@ import logging
 import requests
 from html import unescape
 from typing import Dict, Any, Optional, List
+from services.categories import normalize_app_category
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,10 @@ def fetch_aladin_product_categories(product_url: Optional[str]) -> Dict[str, Opt
             path = extract_aladin_subject_category_path(response.text)
             return {
                 'source_category': ' > '.join(path) or None,
-                'category': choose_aladin_primary_category(path)
+                'category': normalize_app_category(
+                    choose_aladin_primary_category(path),
+                    ' > '.join(path),
+                )
             }
     except Exception as exc:
         logger.debug("Aladin subject classification lookup failed for %s: %s", product_url, exc)
@@ -378,7 +382,10 @@ def fetch_google_books_metadata(title: str, volume: Optional[int] = None) -> Opt
                     "cover_url": thumb,
                     "isbn": isbn,
                     "source_category": source_category,
-                    "category": google_categories[0] if google_categories else None,
+                    "category": normalize_app_category(
+                        google_categories[0] if google_categories else None,
+                        source_category,
+                    ),
                     "score": 40,
                     "source": "google_books"
                 }
@@ -462,7 +469,7 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                                     "isbn_13": clean_num if (is_isbn and len(clean_num) == 13) else c.get('isbn'),
                                     "isbn_10": clean_num if (is_isbn and len(clean_num) == 10) else None,
                                     "source_category": c.get('source_category'),
-                                    "category": c.get('category'),
+                                    "category": normalize_app_category(c.get('category'), c.get('source_category')),
                                     "product_url": c.get('product_url'),
                                     "score": c.get('score', 0),
                                     "source": "Aladin"
@@ -511,7 +518,10 @@ def search_book_candidates(query: str, volume: Optional[int] = None) -> List[Dic
                             "isbn_13": isbn,
                             "isbn_10": None,
                             "source_category": source_category,
-                            "category": google_categories[0] if google_categories else None,
+                            "category": normalize_app_category(
+                                google_categories[0] if google_categories else None,
+                                source_category,
+                            ),
                             "source": "Google Books"
                         })
         except Exception as e:
@@ -637,7 +647,10 @@ class LibraryEnricher:
                                 if force_all or needs_aladin_category_repair or not book.source_category:
                                     book.source_category = meta.get('source_category') or book.source_category
                                 if force_all or needs_aladin_category_repair or not book.category or book.category == CATEGORY_UNCLASSIFIED:
-                                    book.category = meta.get('category') or book.category or CATEGORY_UNCLASSIFIED
+                                    book.category = normalize_app_category(
+                                        meta.get('category'),
+                                        meta.get('source_category'),
+                                    ) if meta.get('category') or meta.get('source_category') else (book.category or CATEGORY_UNCLASSIFIED)
                                 if force_all or not book.metadata_source:
                                     book.metadata_source = meta.get('source') or book.metadata_source
                                 metadata_saved = True

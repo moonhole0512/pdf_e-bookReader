@@ -2633,6 +2633,8 @@ header nav a:hover {
 .shelf-filter-chips {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .filter-chip {
@@ -2667,6 +2669,61 @@ header nav a:hover {
     color: #ffffff;
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(10, 132, 255, 0.35);
+}
+
+.category-more-dropdown {
+    position: relative;
+}
+
+.category-more-dropdown summary {
+    list-style: none;
+}
+
+.category-more-dropdown summary::-webkit-details-marker {
+    display: none;
+}
+
+.category-more-count {
+    color: #aeb6c7;
+    font-size: 11px;
+}
+
+.category-more-dropdown[open] summary {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+
+.category-more-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 30;
+    min-width: 170px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(30, 33, 42, 0.96);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(18px);
+}
+
+.category-more-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: #b7becd;
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.category-more-option:hover,
+.category-more-option.active {
+    color: #ffffff;
+    background: rgba(10, 132, 255, 0.25);
 }
 
 .book-category-label {

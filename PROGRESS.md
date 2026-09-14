@@ -65,10 +65,10 @@
 ## Next
 
 ## Notes
-- Category verification: 8 focused tests passed (migration, Google fallback, scanner, enricher, manual registration, and inclusive/exclusive category filtering); independent evaluator PASS. Full suite retains 4 pre-existing failures: one stale live reading-page expectation and three external metadata/CDN network-dependent tests.
+- Category verification: 12 focused tests passed (normalization, one-time backfill, legacy migration, Google fallback, scanner, enricher, manual registration, and category filter overflow); live browser capture confirms compact labels. Full suite has 58/62 passing with 4 pre-existing live-data/external-network failures.
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
 - Existing database (`instance/library.db`) with 29 files, 18 books, and reading states 100% preserved and enriched.
 - 40/40 automated tests passed in `_testcode/specs/` (including `test_enricher.py` and `test_ui_ux.py`).
 - Evaluator subagent verified Step 46 items and confirmed PASS.
-- Database migration verification: focused migration/backup tests pass (4/4); live startup logs show the up-to-date database skips migration and backup, while the full suite remains 53/58 due to the same 5 pre-existing live-data/external-network failures.
+- Database migration verification: focused migration/backup tests pass (4/4); live startup logs show the up-to-date database skips migration and backup.

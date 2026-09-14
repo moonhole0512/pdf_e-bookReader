@@ -15,6 +15,7 @@ from services.book_enricher import (
     choose_aladin_primary_category, fetch_aladin_metadata, LibraryEnricher
 )
 from services.migration import migrate_database
+from services.categories import normalize_app_category
 
 class TestBookEnricher(unittest.TestCase):
     def setUp(self):
@@ -96,9 +97,20 @@ class TestBookEnricher(unittest.TestCase):
         from services.books_api import _category_metadata, _isbn_metadata
         self.assertEqual(
             _category_metadata({'title': 'Example', 'categories': ['Comics & Graphic Novels']}),
-            {'source_category': 'Comics & Graphic Novels', 'category': 'Comics & Graphic Novels', 'source': 'Google Books'}
+            {'source_category': 'Comics & Graphic Novels', 'category': '만화', 'source': 'Google Books'}
         )
         self.assertEqual(_isbn_metadata('978-1-234567-89-0'), {'isbn_13': '9781234567890', 'isbn_10': None})
+
+    def test_app_category_normalization_collapses_provider_detail(self):
+        self.assertEqual(normalize_app_category('순정만화'), '만화')
+        self.assertEqual(normalize_app_category('Comics & Graphic Novels'), '만화')
+        self.assertEqual(normalize_app_category('라이트 노벨'), '라이트 노벨')
+        self.assertEqual(normalize_app_category('일본소설'), '소설')
+        self.assertEqual(normalize_app_category('Psychology'), '비문학')
+        self.assertEqual(
+            normalize_app_category('소설', '국내도서 > 자기계발 > 심리학'),
+            '실용',
+        )
 
     def test_existing_database_gets_additive_category_columns(self):
         """Migration adds discovery fields without recreating an existing book table."""
@@ -157,7 +169,7 @@ class TestBookEnricher(unittest.TestCase):
             LibraryEnricher._run_enrich_thread(self.app, force_all=False)
         updated = db.session.get(Book, book.id)
         self.assertEqual((updated.isbn_13, updated.source_category, updated.category, updated.metadata_source),
-                         ('9781234567890', 'Psychology', 'Psychology', 'Google Books'))
+                         ('9781234567890', 'Psychology', '비문학', 'Google Books'))
 
     def test_safe_enrichment_never_overwrites_existing_manual_fields(self):
         book = Book(title='Manual Title', author='Manual Author',
@@ -196,7 +208,7 @@ class TestBookEnricher(unittest.TestCase):
         refreshed_file = db.session.get(File, file_obj.id)
         self.assertEqual(refreshed_book.author, 'Provider Author')
         self.assertEqual(refreshed_book.cover_url, 'https://example.test/provider.jpg')
-        self.assertEqual(refreshed_book.category, 'Provider Category')
+        self.assertEqual(refreshed_book.category, '미분류')
         self.assertEqual(refreshed_file.title, 'Provider Title')
         self.assertEqual(refreshed_file.author, 'Provider Author')
         self.assertEqual(refreshed_file.cover_url, 'https://example.test/provider.jpg')
@@ -222,7 +234,7 @@ class TestBookEnricher(unittest.TestCase):
             LibraryEnricher._run_enrich_thread(self.app, force_all=False)
         self.assertTrue(enrich.called)
         updated = db.session.get(Book, book.id)
-        self.assertEqual(updated.category, '일본소설')
+        self.assertEqual(updated.category, '소설')
         self.assertEqual(updated.source_category, metadata['source_category'])
 
     def test_background_enricher_marks_unmatched_books_unclassified(self):

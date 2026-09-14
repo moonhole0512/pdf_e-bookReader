@@ -107,6 +107,13 @@ def index():
     total_files = db.session.query(func.count(File.id)).scalar() or 0
     category_counts = dict(db.session.query(func.coalesce(Book.category, '미분류'), func.count(Book.id))
                            .group_by(func.coalesce(Book.category, '미분류')).all())
+    category_options = sorted(
+        ((name, count) for name, count in category_counts.items() if count),
+        key=lambda item: (-item[1], item[0]),
+    )
+    visible_category_options = category_options[:5]
+    visible_names = {name for name, _ in visible_category_options}
+    hidden_category_options = [item for item in category_options if item[0] not in visible_names]
 
     last_file = recent_lounge_items[0]['file'] if recent_lounge_items else None
     next_volume_file = recent_lounge_items[0]['next_volume_file'] if recent_lounge_items else None
@@ -125,6 +132,8 @@ def index():
         search_query=search_query,
         active_category=category,
         category_counts=category_counts,
+        visible_category_options=visible_category_options,
+        hidden_category_options=hidden_category_options,
         total_books=total_books,
         total_files=total_files
     )

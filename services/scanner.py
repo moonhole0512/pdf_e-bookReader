@@ -141,6 +141,7 @@ class LibraryScanner:
                     if enrich_metadata:
                         try:
                             from services.book_enricher import enrich_book_info
+                            from services.categories import normalize_app_category
                             meta = enrich_book_info(title, volume=volume, author_hint=book.author)
                             if meta:
                                 if meta.get('author') and meta['author'] not in ("알 수 없음", "Unknown"):
@@ -150,7 +151,10 @@ class LibraryScanner:
                                     book.cover_url = meta['cover_url']
                                 book.isbn_13 = meta.get('isbn') or book.isbn_13
                                 book.source_category = meta.get('source_category') or book.source_category
-                                book.category = meta.get('category') or book.category
+                                if meta.get('category') or meta.get('source_category'):
+                                    book.category = normalize_app_category(
+                                        meta.get('category'), meta.get('source_category')
+                                    )
                                 book.metadata_source = meta.get('source') or book.metadata_source
                                 file_cover = meta.get('cover_url')
                                 display_title = meta.get('title') or stem
