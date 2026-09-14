@@ -1,23 +1,33 @@
-# Python 가상 환경
+# Python environments and caches
 venv/
 .venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Tests and local debug artifacts
 _testcode/
 
-# Git 관련 파일
+# Git and development metadata
 .git/
+.gitignore
+AGENTS.md
+PROGRESS.md
+ARCHITECTURE.md
+agents/
+workflows/
+integrations/
 
-# Python 캐시 파일
-__pycache__/
-*.pyc
-
-# 로컬 환경 변수 파일 (컨테이너 내부에서 별도로 설정)
+# Local configuration and secrets
 .env
 
-# Windows 전용 실행 스크립트
+# Windows-only launcher
 run.bat
 
-# 데이터베이스 파일이 포함된 instance 디렉터리 (볼륨으로 마운트할 예정)
+# Persistent runtime data is mounted from the host
 instance/
-
-# PDF 파일이 포함된 pdfs 디렉터리 (볼륨으로 마운트할 예정)
 pdfs/

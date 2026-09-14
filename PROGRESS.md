@@ -1,4 +1,5 @@
 ## Done
+- [x] [Implementation] Prepared Docker/Git release documentation: normalized runtime ignore rules, excluded development-only Docker context, and documented local usage, NAS volumes, Docker Hub publishing, and safe container updates.
 - [x] [Implementation] Gated database migration and backup creation behind a complete pending-change check; current databases now skip migration and `.bak` creation, legacy schemas migrate and back up once, with focused regression coverage and independent evaluator PASS.
 - [x] [Implementation] Split metadata work into safe missing-information completion and explicit full-library refresh; PDF scanning continues to enrich new files automatically, existing manual fields are protected in safe mode, and independent evaluator PASS.
 - [x] [Debugging] Restored primary-category labels in the reading and recommendation shelves after ISBN updates; confirmed metadata persists, restarted the stale local template server, added cross-shelf regression coverage, and received independent evaluator PASS.
@@ -65,6 +66,7 @@
 ## Next
 
 ## Notes
+- Documentation verification: README commands and Docker volume destinations match `run.bat`, `Dockerfile`, and `config.py`; `git diff --check` is clean and runtime data paths are ignored by Git.
 - Category verification: 12 focused tests passed (normalization, one-time backfill, legacy migration, Google fallback, scanner, enricher, manual registration, and category filter overflow); live browser capture confirms compact labels. Full suite has 58/62 passing with 4 pre-existing live-data/external-network failures.
 - Target Environment: Synology DS220j NAS (Realtek RTD1296 4-core, 512MB RAM) + Local PC development.
 - Zero extra heavy dependencies (e.g. no Redis/Celery/Selenium) to respect 512MB RAM constraints. Lightweight `requests` + regex based. Pure CSS3 + Vanilla JS.
