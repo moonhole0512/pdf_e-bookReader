@@ -1,159 +1,117 @@
 # E-Book Reader
 
-PDF 기반 전자책과 만화 파일을 한곳에서 관리하고 웹 브라우저로 읽는 가벼운 개인용 서재입니다. Windows 개발 환경과 저사양 Synology NAS를 모두 고려해 Flask, SQLite, pdf.js로 구성했습니다.
+PDF 전자책과 만화 파일을 한곳에서 관리하고 웹 브라우저로 읽는 개인용 서재입니다. PC와 Synology NAS에서 사용할 수 있으며, 책이 많아져도 빠르게 찾을 수 있도록 서재와 읽기 진행률을 단순하게 관리합니다.
 
 ## 주요 기능
 
 - PDF 파일 자동 스캔과 서재 동기화
-- 브라우저 내 PDF 읽기 및 사용자별 독서 진행률 저장
-- Aladin·Google Books 기반 도서 정보 보완과 고해상도 표지 검색
-- 표지·저자·장르·ISBN 수동 수정
-- 장르를 `소설`, `라이트 노벨`, `만화`, `비문학`, `실용`, `미분류`로 단순화
-- 책 제목·저자·시리즈·장르 검색 및 읽기 상태 필터
-- 여러 사용자의 독서 상태 분리
-- 기존 SQLite 데이터의 자동 마이그레이션
-- 마이그레이션이 실제로 필요할 때만 DB 백업 생성
-- 저사양 NAS를 위한 Gunicorn 단일 워커 설정
+- 브라우저에서 바로 읽기
+- 사용자별 독서 진행률 저장
+- Aladin·Google Books 기반 도서 정보 보완
+- 표지·저자·장르·ISBN 수정
+- 소설, 라이트 노벨, 만화, 비문학, 실용, 미분류 중심의 간단한 장르 분류
+- 제목·저자·시리즈·장르 검색
+- 읽는 중·미독·완독 필터
+- 여러 사용자 지원
 
-## 요구사항
+## 로컬에서 실행하기
 
-- Python 3.10 이상 (로컬 실행)
-- Docker 및 Docker Buildx (Docker 배포)
-- NAS에서 Docker를 실행할 수 있는 환경
-
-## 로컬 실행
-
-가장 간단한 방법은 Windows에서 `run.bat`를 실행하는 것입니다. 스크립트가 `.venv`를 만들고 필요한 패키지를 설치한 뒤 서버를 시작합니다.
+Windows에서는 run.bat를 실행하면 필요한 가상환경과 패키지를 준비한 뒤 서버를 시작합니다.
 
 브라우저에서 다음 주소를 엽니다.
 
-```text
-http://localhost:8000
-```
+    http://localhost:8000
 
-명령줄에서 직접 실행하려면 다음과 같이 합니다.
+처음 입력한 사용자 이름은 자동으로 생성되며 첫 번째 사용자가 관리자 권한을 갖습니다. 비밀번호를 입력하면 이후 로그인에 사용할 수 있습니다.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m waitress --host 0.0.0.0 --port 8000 app:app
-```
+## 책 추가와 사용법
 
-## 처음 로그인하기
+1. pdfs/ 폴더에 PDF 파일을 넣습니다.
+2. 웹 화면에서 PDF 스캔을 실행합니다.
+3. 새 파일이 서재에 등록되고 도서 정보 보완을 시도합니다.
+4. 기존 서가의 빈 정보를 채우려면 정보 보완에서 누락 정보만 보완을 선택합니다.
+5. 기존 정보를 새로 검색해야 할 때만 전체 서가 다시 가져오기를 사용합니다.
 
-처음 입력한 사용자 이름은 자동으로 생성되며 첫 번째 사용자가 관리자 권한을 갖습니다. 비밀번호를 입력하면 이후 로그인에 사용됩니다.
+독서 진행률은 사용자별로 자동 저장됩니다. 파일을 옮길 때는 pdfs/ 안의 폴더 구조를 유지하는 것이 안전합니다.
 
-## 책 파일 추가와 사용법
+## NAS 설정
 
-1. 프로젝트의 `pdfs/` 폴더에 PDF 파일을 넣습니다.
-2. 웹 화면에서 `PDF 스캔`을 실행합니다.
-3. 새 파일은 스캔 과정에서 도서 정보 보완을 시도합니다.
-4. 기존 서가의 누락 정보만 채우려면 `정보 보완`에서 `누락 정보만 보완`을 선택합니다.
-5. 전체 정보를 다시 검색해야 할 때만 `전체 서가 다시 가져오기`를 사용합니다. 이 작업은 기존 자동 정보나 수동 수정 내용을 바꿀 수 있습니다.
+Synology Container Manager에서 컨테이너를 만들 때 아래처럼 설정하면 됩니다. 화면에 표시되는 이미지 이름이나 포트는 설치 환경에 따라 달라도 되지만, 컨테이너 내부 경로는 그대로 유지해야 합니다.
 
-독서 진행률은 사용자별로 자동 저장됩니다. PDF 파일과 DB를 다른 컴퓨터로 옮길 때는 파일의 상대 경로 구조를 유지하는 것이 안전합니다.
+### 볼륨
 
-## 데이터와 환경변수
+| NAS 폴더 | 컨테이너 경로 | 권한 | 용도 |
+|---|---|---|---|
+| /volume1/docker/e_book_reader/ | /app/instance | rw | DB, 마이그레이션 백업 등 앱 상태 |
+| /volume1/Doc/책(스캔본) | /app/pdfs | ro | PDF 책 파일 |
 
-로컬 기본 경로는 다음과 같습니다.
+instance는 앱이 DB와 백업 파일을 생성하므로 반드시 읽기/쓰기(rw)여야 합니다. pdfs는 앱이 책을 읽고 스캔하기만 하므로 읽기 전용(ro)으로 두어도 됩니다.
 
-| 항목 | 기본 경로 | 설명 |
+### 포트
+
+컨테이너 포트 8000/TCP를 NAS의 원하는 포트에 연결합니다.
+
+예를 들어 NAS 포트를 8000으로 정하면 다음 주소로 접속합니다.
+
+    http://NAS주소:8000
+
+### 환경 변수
+
+현재 이미지에는 기본값이 들어 있어 필수 환경변수는 없습니다. Container Manager에 명시적으로 입력하려면 아래 두 개만 사용하면 됩니다.
+
+| 변수 | 값 | 설명 |
 |---|---|---|
-| 책 파일 | `pdfs/` | 스캔할 PDF 파일 |
-| 데이터베이스 | `instance/library.db` | 사용자, 책 정보, 독서 상태 |
-| 비밀키 | `instance/.secret_key` | 세션 암호화에 사용 |
+| PDF_ROOT_PATH | /app/pdfs | 컨테이너 안의 책 폴더 |
+| DB_PATH | /app/instance/library.db | 컨테이너 안의 SQLite DB |
 
-`.env` 파일로 다음 값을 재정의할 수 있습니다.
+다음 항목은 Python 기본 이미지가 자동으로 사용하는 값이므로 직접 입력하거나 수정할 필요가 없습니다.
 
-```dotenv
-SECRET_KEY=충분히_긴_무작위_문자열
-DB_PATH=instance/library.db
-PDF_ROOT_PATH=pdfs
-```
+- PATH
+- LANG
+- GPG_KEY
+- PYTHON_VERSION
+- PYTHON_SHA256
 
-`instance/`와 `pdfs/`는 Git에 올리지 않도록 무시됩니다. DB를 백업하려면 앱을 중지한 뒤 `instance/` 폴더를 별도로 복사하십시오.
+## 데이터 보관
 
-## Docker 이미지 빌드와 Docker Hub 업로드
+앱의 중요한 데이터는 다음 두 곳에 있습니다.
 
-Docker Hub 로그인 후 프로젝트 루트에서 실행합니다. 예시는 카테고리 UI 변경이 포함된 `1.1.0` 태그입니다.
+| 경로 | 내용 |
+|---|---|
+| instance/ | 사용자, 책 정보, 독서 진행률, DB 백업 등 앱 상태 |
+| pdfs/ | 실제 PDF 파일 |
 
-```powershell
-docker login
-docker buildx build --platform linux/amd64,linux/arm64/v8 -t gruzam/e-book-reader:1.1.0 -t gruzam/e-book-reader:latest --push .
-```
+컨테이너를 다시 만들더라도 이 두 폴더를 같은 볼륨으로 연결하면 책과 독서 기록이 유지됩니다. DB 구조 변경이 필요한 업데이트에서는 필요한 경우에만 library.db.bak 백업이 생성됩니다.
 
-`latest`는 편리한 업데이트용이고, 버전 태그는 문제가 생겼을 때 되돌리기 쉽습니다. 실제 운영 NAS에는 버전 태그를 사용하는 것을 권장합니다.
+## 프로젝트 동작 흐름
 
-## NAS에서 처음 실행하기
+    PDF 폴더
+        │
+        ▼
+    백그라운드 스캐너
+        │
+        ▼
+    도서 정보 보완 ───── Aladin / Google Books
+        │
+        ▼
+    SQLite 서재 DB
+        │
+        ▼
+    서재 화면 ──────── 검색·필터·시리즈 탐색
+        │
+        ▼
+    웹 PDF 리더
+        │
+        ▼
+    독서 진행률 저장 ─── SQLite 서재 DB
 
-Synology 예시입니다. 왼쪽 경로는 NAS에서 실제 사용하는 호스트 경로로 바꾸십시오.
+각 구성요소의 역할은 다음과 같습니다.
 
-```bash
-docker run -d --name e-book-reader --restart unless-stopped -p 8000:8000 -v /volume1/docker/e-book-reader/instance:/app/instance -v /volume1/docker/e-book-reader/pdfs:/app/pdfs gruzam/e-book-reader:1.1.0
-```
-
-컨테이너 내부 경로는 반드시 유지해야 합니다.
-
-- `instance` → `/app/instance`: DB, 세션 비밀키, 마이그레이션 백업
-- `pdfs` → `/app/pdfs`: 실제 전자책 파일
-
-`instance/`와 `pdfs/`를 볼륨으로 연결하지 않으면 컨테이너를 재생성할 때 데이터가 이미지에 포함되지 않아 사라질 수 있습니다.
-
-## NAS에서 업데이트하기
-
-이미지를 새로 올린 뒤 NAS에서 다음 순서로 실행합니다.
-
-```bash
-docker pull gruzam/e-book-reader:1.1.0
-docker stop e-book-reader
-docker rm e-book-reader
-docker run -d --name e-book-reader --restart unless-stopped -p 8000:8000 -v /volume1/docker/e-book-reader/instance:/app/instance -v /volume1/docker/e-book-reader/pdfs:/app/pdfs gruzam/e-book-reader:1.1.0
-```
-
-기존 컨테이너 이름이나 호스트 경로를 모르면 먼저 확인합니다.
-
-```bash
-docker ps -a
-docker inspect e-book-reader --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
-```
-
-기존 실행 명령에 별도의 `-e`, 네트워크, 포트 설정이 있었다면 새 `docker run`에도 그대로 유지해야 합니다. 컨테이너만 삭제하려면 `docker rm`을 사용하고, 데이터 볼륨까지 지우는 `docker rm -v`는 사용하지 마십시오.
-
-업데이트 확인:
-
-```bash
-docker ps
-docker logs --tail=100 e-book-reader
-```
-
-이번 버전처럼 DB 구조나 기존 데이터 보완이 포함된 업데이트는 첫 시작 때만 필요한 마이그레이션과 백업을 수행합니다. 이후 재시작에서는 변경 사항이 없으면 백업을 만들지 않습니다.
-
-## 테스트
-
-전체 회귀 테스트:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s _testcode/specs -p "test_*.py"
-```
-
-DB 마이그레이션 핵심 테스트:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest _testcode.specs.test_migration
-```
-
-외부 도서 API를 사용하는 일부 테스트는 네트워크 상태나 제공자 응답에 영향을 받을 수 있습니다.
-
-## 프로젝트 구조
-
-```text
-app.py                  Flask 애플리케이션 진입점
-config.py               DB·PDF·세션 설정
-models.py               사용자·책·파일·독서 상태 모델
-blueprints/             인증·서재·리더·관리 API
-services/               스캔·메타데이터·카테고리·마이그레이션
-templates/              웹 화면
-static/                 CSS와 브라우저 JavaScript
-Dockerfile              NAS용 이미지 정의
-_testcode/specs/        격리된 테스트 코드
-```
+| 구성요소 | 역할 |
+|---|---|
+| PDF 폴더 | 원본 책 파일을 보관합니다. |
+| 스캐너 | 새 파일을 찾아 서재 DB에 등록합니다. |
+| 메타데이터 보완 | 제목·저자·표지·ISBN·장르 정보를 채웁니다. |
+| SQLite DB | 사용자, 책, 파일, 독서 진행률을 저장합니다. |
+| 서재 화면 | 검색·필터·시리즈 탐색을 제공합니다. |
+| 웹 PDF 리더 | 페이지 이동과 읽기 진행률 저장을 담당합니다. |
